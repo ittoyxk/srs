@@ -1,25 +1,8 @@
-/*
-The MIT License (MIT)
-
-Copyright (c) 2013-2021 Winlin
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so,
-subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
 #include <srs_utest_kernel.hpp>
 
 using namespace std;
@@ -2096,6 +2079,15 @@ VOID TEST(KernelUtilityTest, UtilityString)
     str1 = srs_string_replace(str, "o", "XX");
     EXPECT_STREQ("HellXX, WXXrld! HellXX, SRS!", str1.c_str());
 
+    // origin_str == old_str
+    std::string origin_str = "xxd";
+    str1 = srs_string_replace(origin_str, "xxd", "x1d");
+    EXPECT_STREQ("x1d", str1.c_str());
+
+    // new_str include old_str.
+    str1 = srs_string_replace(str, "Hello", "HelloN");
+    EXPECT_STREQ("HelloN, World! HelloN, SRS!", str1.c_str());
+
     str1 = srs_string_trim_start(str, "x");
     EXPECT_STREQ("Hello, World! Hello, SRS!", str1.c_str());
 
@@ -3740,6 +3732,22 @@ VOID TEST(KernelCodecTest, VideoFormatSepcial)
         };
         HELPER_EXPECT_SUCCESS(f.on_video(0, (char*)buf, sizeof(buf)));
     }
+
+    if (true) {
+        SrsFormat f;
+        HELPER_EXPECT_SUCCESS(f.initialize());
+        uint8_t buf[] = {
+            0x17, // 1, Keyframe; 7, AVC.
+            0x00, // 0, Sequence header.
+            0x00, 0x00, 0x00, // Timestamp.
+            // AVC extra data, SPS/PPS.
+            0x00, 0x00, 0x00, 0x00,
+            0x00, // lengthSizeMinusOne
+            0x02, 0x00, 0x00, 0x00, 0x00, // 2 SPS, 
+            0x02, 0x00, 0x00, 0x00, 0x00  // 2 PPS, 
+        };
+        HELPER_EXPECT_SUCCESS(f.on_video(0, (char*)buf, sizeof(buf)));
+    }
 }
 
 VOID TEST(KernelCodecTest, VideoFormat)
@@ -4560,6 +4568,14 @@ VOID TEST(KernelUtilityTest, CoverTimeUtilityAll)
         string host;
         int port = 0;
         srs_parse_hostport("domain.com", host, port);
+        EXPECT_STREQ("domain.com", host.c_str());
+    }
+
+    if (true) {
+        string host;
+        int port = 1935;
+        srs_parse_hostport("domain.com:0", host, port);
+        EXPECT_EQ(1935, port);
         EXPECT_STREQ("domain.com", host.c_str());
     }
     
@@ -5520,3 +5536,18 @@ VOID TEST(KernelUtilityTest, CoverStringAssign)
     ASSERT_STREQ("", sps.c_str());
 }
 
+VOID TEST(KernelUtilityTest, CoverCheckIPAddrValid)
+{
+    ASSERT_TRUE(srs_check_ip_addr_valid("172.16.254.1"));
+    ASSERT_TRUE(srs_check_ip_addr_valid("2001:0db8:85a3:0:0:8A2E:0370:7334"));
+    ASSERT_FALSE(srs_check_ip_addr_valid(""));
+
+    //IPv4 any addr
+    ASSERT_TRUE(srs_check_ip_addr_valid("0.0.0.0"));
+    //IPV6 any addr
+    ASSERT_TRUE(srs_check_ip_addr_valid("::"));
+
+    ASSERT_FALSE(srs_check_ip_addr_valid("256.256.256.256"));
+    ASSERT_FALSE(srs_check_ip_addr_valid("2001:0db8:85a3:0:0:8A2E:0370:7334:"));
+    ASSERT_FALSE(srs_check_ip_addr_valid("1e1.4.5.6"));
+}

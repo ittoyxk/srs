@@ -1,25 +1,8 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Winlin
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
 
 #include <srs_core.hpp>
 
@@ -66,6 +49,7 @@ using namespace std;
 
 // pre-declare
 srs_error_t run_directly_or_daemon();
+srs_error_t srs_detect_docker();
 srs_error_t run_hybrid_server();
 void show_macro_features();
 
@@ -98,9 +82,6 @@ srs_error_t do_main(int argc, char** argv)
 
     // TODO: support both little and big endian.
     srs_assert(srs_is_little_endian());
-
-    // For RTC to generating random ICE username.
-    ::srandom((unsigned long)(srs_update_system_time() | (::getpid()<<13)));
     
     // for gperf gmp or gcp,
     // should never enable it when not enabled for performance issue.
@@ -111,18 +92,15 @@ srs_error_t do_main(int argc, char** argv)
     ProfilerStart("gperf.srs.gcp");
 #endif
     
-    // directly compile error when these two macro defines.
-#if defined(SRS_GPERF_MC) && defined(SRS_GPERF_MP)
-#error ("option --with-gmc confict with --with-gmp, "
-    "@see: http://google-perftools.googlecode.com/svn/trunk/doc/heap_checker.html\n"
-    "Note that since the heap-checker uses the heap-profiling framework internally, "
-    "it is not possible to run both the heap-checker and heap profiler at the same time");
-#endif
-    
     // never use gmp to check memory leak.
 #ifdef SRS_GPERF_MP
 #warning "gmp is not used for memory leak, please use gmc instead."
 #endif
+
+    // Ignore any error while detecting docker.
+    if ((err = srs_detect_docker()) != srs_success) {
+        srs_error_reset(err);
+    }
     
     // never use srs log(srs_trace, srs_error, etc) before config parse the option,
     // which will load the log config and apply it.
@@ -149,8 +127,9 @@ srs_error_t do_main(int argc, char** argv)
     srs_trace2(TAG_MAIN, "%s, %s", RTMP_SIG_SRS_SERVER, RTMP_SIG_SRS_LICENSE);
     srs_trace("authors: %s", RTMP_SIG_SRS_AUTHORS);
     srs_trace("contributors: %s", SRS_CONSTRIBUTORS);
-    srs_trace("cwd=%s, work_dir=%s, build: %s, configure: %s, uname: %s, osx: %d",
-        _srs_config->cwd().c_str(), cwd.c_str(), SRS_BUILD_DATE, SRS_USER_CONFIGURE, SRS_UNAME, SRS_OSX_BOOL);
+    srs_trace("cwd=%s, work_dir=%s, build: %s, configure: %s, uname: %s, osx: %d, pkg: %s, region: %s, source: %s",
+        _srs_config->cwd().c_str(), cwd.c_str(), SRS_BUILD_DATE, SRS_USER_CONFIGURE, SRS_UNAME, SRS_OSX_BOOL, SRS_PACKAGER,
+        srs_getenv("SRS_REGION").c_str(), srs_getenv("SRS_SOURCE").c_str());
     srs_trace("configure detail: " SRS_CONFIGURE);
 #ifdef SRS_EMBEDED_TOOL_CHAIN
     srs_trace("crossbuild tool chain: " SRS_EMBEDED_TOOL_CHAIN);
@@ -407,9 +386,12 @@ srs_error_t run_directly_or_daemon()
 {
     srs_error_t err = srs_success;
 
-    // Ignore any error while detecting docker.
-    if ((err = srs_detect_docker()) != srs_success) {
-        srs_error_reset(err);
+    // Try to load the config if docker detect failed.
+    if (!_srs_in_docker) {
+        _srs_in_docker = _srs_config->get_in_docker();
+        if (_srs_in_docker) {
+            srs_trace("enable in_docker by config");
+        }
     }
 
     // Load daemon from config, disable it for docker.

@@ -11,6 +11,7 @@ echo "#ifndef SRS_AUTO_HEADER_HPP" >> $SRS_AUTO_HEADERS_H
 echo "#define SRS_AUTO_HEADER_HPP" >> $SRS_AUTO_HEADERS_H
 echo "" >> $SRS_AUTO_HEADERS_H
 
+echo "#define SRS_PACKAGER \"${SRS_AUTO_PACKAGER}\"" >> $SRS_AUTO_HEADERS_H
 echo "#define SRS_BUILD_TS \"`date +%s`\"" >> $SRS_AUTO_HEADERS_H
 echo "#define SRS_BUILD_DATE \"`date \"+%Y-%m-%d %H:%M:%S\"`\"" >> $SRS_AUTO_HEADERS_H
 echo "#define SRS_UNAME \"`uname -a`\"" >> $SRS_AUTO_HEADERS_H
@@ -38,20 +39,6 @@ function srs_undefine_macro()
     echo "#undef $macro" >> $file
     echo "#define ${macro}_BOOL false" >> $file
 }
-
-# export the preset.
-if [ $SRS_X86_X64 = YES ]; then
-    srs_define_macro "SRS_X86_X64" $SRS_AUTO_HEADERS_H
-fi
-if [ $SRS_PI = YES ]; then
-    srs_define_macro "SRS_PI" $SRS_AUTO_HEADERS_H
-fi
-if [ $SRS_CUBIE = YES ]; then
-    srs_define_macro "SRS_CUBIE" $SRS_AUTO_HEADERS_H
-fi
-echo "#undef SRS_EXPORT_LIBRTMP" >> $SRS_AUTO_HEADERS_H
-
-echo "" >> $SRS_AUTO_HEADERS_H
 
 #####################################################################################
 # generate auto headers file, depends on the finished of options.sh
@@ -97,12 +84,6 @@ if [ $SRS_SIMULATOR = YES ]; then
     srs_define_macro "SRS_SIMULATOR" $SRS_AUTO_HEADERS_H
 else
     srs_undefine_macro "SRS_SIMULATOR" $SRS_AUTO_HEADERS_H
-fi
-
-if [ $SRS_GB28181 = YES ]; then
-    srs_define_macro "SRS_GB28181" $SRS_AUTO_HEADERS_H
-else
-    srs_undefine_macro "SRS_GB28181" $SRS_AUTO_HEADERS_H
 fi
 
 if [ $SRS_HTTPS = YES ]; then
@@ -196,14 +177,15 @@ fi
 # prefix
 echo "" >> $SRS_AUTO_HEADERS_H
 echo "#define SRS_PREFIX \"${SRS_PREFIX}\"" >> $SRS_AUTO_HEADERS_H
+echo "#define SRS_DEFAULT_CONFIG \"${SRS_DEFAULT_CONFIG}\"" >> $SRS_AUTO_HEADERS_H
 
 echo "" >> $SRS_AUTO_HEADERS_H
 
 #####################################################################################
 # generated the contributors from AUTHORS.txt
 #####################################################################################
-if [[ -f ../AUTHORS.txt ]]; then
-	SRS_CONSTRIBUTORS=`cat ../AUTHORS.txt|grep "*"|awk '{print $2}'`
+if [[ -f AUTHORS.txt ]]; then
+	SRS_CONSTRIBUTORS=`cat AUTHORS.txt|grep "*"|awk '{print $2}'`
 	echo "#define SRS_CONSTRIBUTORS \"\\" >> $SRS_AUTO_HEADERS_H
 	for CONTRIBUTOR in $SRS_CONSTRIBUTORS; do
 	    CONTRIBUTOR=`echo $CONTRIBUTOR|sed 's/@users.noreply.github.com>/@github>/g'`

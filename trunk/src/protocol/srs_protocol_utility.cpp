@@ -1,29 +1,11 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Winlin
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
 
 #include <srs_protocol_utility.hpp>
 
-// for srs-librtmp, @see https://github.com/ossrs/srs/issues/213
 #ifndef _WIN32
 #include <unistd.h>
 #endif
@@ -148,37 +130,36 @@ void srs_parse_query_string(string q, map<string,string>& query)
     }
 }
 
-static bool _random_initialized = false;
-
 void srs_random_generate(char* bytes, int size)
 {
-    if (!_random_initialized) {
-        _random_initialized = true;
-        ::srandom((unsigned long)(srs_update_system_time() | (::getpid()<<13)));
-    }
-    
     for (int i = 0; i < size; i++) {
         // the common value in [0x0f, 0xf0]
-        bytes[i] = 0x0f + (random() % (256 - 0x0f - 0x0f));
+        bytes[i] = 0x0f + (srs_random() % (256 - 0x0f - 0x0f));
     }
 }
 
 std::string srs_random_str(int len)
 {
-    if (!_random_initialized) {
-        _random_initialized = true;
-        ::srandom((unsigned long)(srs_update_system_time() | (::getpid()<<13)));
-    }
-
     static string random_table = "01234567890123456789012345678901234567890123456789abcdefghijklmnopqrstuvwxyz";
 
     string ret;
     ret.reserve(len);
     for (int i = 0; i < len; ++i) {
-        ret.append(1, random_table[random() % random_table.size()]);
+        ret.append(1, random_table[srs_random() % random_table.size()]);
     }
 
     return ret;
+}
+
+long srs_random()
+{
+    static bool _random_initialized = false;
+    if (!_random_initialized) {
+        _random_initialized = true;
+        ::srandom((unsigned long)(srs_update_system_time() | (::getpid()<<13)));
+    }
+
+    return random();
 }
 
 string srs_generate_tc_url(string host, string vhost, string app, int port)
@@ -363,7 +344,6 @@ srs_error_t srs_write_large_iovs(ISrsProtocolReadWriter* skt, iovec* iovs, int s
     srs_error_t err = srs_success;
     
     // the limits of writev iovs.
-    // for srs-librtmp, @see https://github.com/ossrs/srs/issues/213
 #ifndef _WIN32
     // for linux, generally it's 1024.
     static int limits = (int)sysconf(_SC_IOV_MAX);

@@ -1,25 +1,8 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 LiPeng
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 LiPeng
+//
+// SPDX-License-Identifier: MIT
+//
 
 #include <srs_kernel_rtc_rtcp.hpp>
 
@@ -491,6 +474,7 @@ SrsRtcpRR::SrsRtcpRR(uint32_t sender_ssrc)
     header_.version = kRtcpVersion;
     header_.length = 7;
     ssrc_ = sender_ssrc;
+    // TODO: FIXME: Fix warning.
     memset(&rb_, 0, sizeof(SrsRtcpRB));
 }
 
@@ -1177,15 +1161,27 @@ srs_error_t SrsRtcpTWCC::do_encode(SrsBuffer *buffer)
     if(srs_success != (err = encode_header(buffer))) {
         return srs_error_wrap(err, "encode header");
     }
+
     buffer->write_4bytes(media_ssrc_);
     buffer->write_2bytes(base_sn_);
     buffer->write_2bytes(packet_count);
     buffer->write_3bytes(reference_time_);
     buffer->write_1bytes(fb_pkt_count_);
 
+    int required_size = encoded_chucks_.size() * 2;
+    if(!buffer->require(required_size)) {
+        return srs_error_new(ERROR_RTC_RTCP, "encoded_chucks_[%d] requires %d bytes", (int)encoded_chucks_.size(), required_size);
+    }
+
     for(vector<uint16_t>::iterator it = encoded_chucks_.begin(); it != encoded_chucks_.end(); ++it) {
         buffer->write_2bytes(*it);
     }
+
+    required_size = pkt_deltas_.size() * 2;
+    if(!buffer->require(required_size)) {
+        return srs_error_new(ERROR_RTC_RTCP, "pkt_deltas_[%d] requires %d bytes", (int)pkt_deltas_.size(), required_size);
+    }
+
     for(vector<uint16_t>::iterator it = pkt_deltas_.begin(); it != pkt_deltas_.end(); ++it) {
         if(0 <= *it && 0xFF >= *it) {
             // small delta
@@ -1196,6 +1192,7 @@ srs_error_t SrsRtcpTWCC::do_encode(SrsBuffer *buffer)
             buffer->write_2bytes(*it);
         }
     }
+
     while((pkt_len % 4) != 0) {
         buffer->write_1bytes(0);
         pkt_len++;
@@ -1351,7 +1348,10 @@ srs_error_t SrsRtcpNack::encode(SrsBuffer *buffer)
             } else if( (sn - pid) > 16) {
                 // add new chunk
                 chunks.push_back(chunk);
-                chunk.in_use = false;
+		chunk.pid = sn;
+                chunk.blp = 0;
+                chunk.in_use = true;
+                pid = sn;
             } else {
                 chunk.blp |= 1 << (sn-pid-1);
             }

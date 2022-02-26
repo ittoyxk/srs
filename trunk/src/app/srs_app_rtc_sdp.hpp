@@ -1,25 +1,8 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 John
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 John
+//
+// SPDX-License-Identifier: MIT
+//
 
 #ifndef SRS_APP_RTC_SDP_HPP
 #define SRS_APP_RTC_SDP_HPP
@@ -53,7 +36,9 @@ public:
     srs_error_t parse_attribute(const std::string& attribute, const std::string& value);
     srs_error_t encode(std::ostringstream& os);
 
-    bool operator=(const SrsSessionInfo& rhs);
+    bool operator==(const SrsSessionInfo& rhs);
+    // user-defined copy assignment (copy-and-swap idiom)
+    SrsSessionInfo& operator=(SrsSessionInfo other);
 public:
     std::string ice_ufrag_;
     std::string ice_pwd_;
@@ -74,6 +59,9 @@ public:
 public:
     uint32_t ssrc_;
     std::string cname_;
+    // See https://webrtchacks.com/sdp-anatomy/
+    // a=ssrc:2231627014 msid:lgsCFqt9kN2fVKw5wg3NKqGdATQoltEwOdMS daed9400-d0dd-4db3-b949-422499e96e2d
+    // a=ssrc:2231627014 msid:{msid_} {msid_tracker_}
     std::string msid_;
     std::string msid_tracker_;
     std::string mslabel_;

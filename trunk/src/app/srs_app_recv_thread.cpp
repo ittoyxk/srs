@@ -1,25 +1,8 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Winlin
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
 
 #include <srs_app_recv_thread.hpp>
 
@@ -110,8 +93,6 @@ srs_error_t SrsRecvThread::cycle()
     // the multiple messages writev improve performance large,
     // but the timeout recv will cause 33% sys call performance,
     // to use isolate thread to recv, can improve about 33% performance.
-    // @see https://github.com/ossrs/srs/issues/194
-    // @see: https://github.com/ossrs/srs/issues/217
     rtmp->set_recv_timeout(SRS_UTIME_NO_TIMEOUT);
     
     pumper->on_start();
@@ -164,7 +145,7 @@ srs_error_t SrsRecvThread::do_cycle()
     return err;
 }
 
-SrsQueueRecvThread::SrsQueueRecvThread(SrsConsumer* consumer, SrsRtmpServer* rtmp_sdk, srs_utime_t tm, SrsContextId parent_cid)
+SrsQueueRecvThread::SrsQueueRecvThread(SrsLiveConsumer* consumer, SrsRtmpServer* rtmp_sdk, srs_utime_t tm, SrsContextId parent_cid)
 	: trd(this, rtmp_sdk, tm, parent_cid)
 {
     _consumer = consumer;
@@ -190,9 +171,6 @@ SrsQueueRecvThread::~SrsQueueRecvThread()
 srs_error_t SrsQueueRecvThread::start()
 {
     srs_error_t err = srs_success;
-
-    SrsStatistic* stat = SrsStatistic::instance();
-    rtmp->set_perf(stat);
     
     if ((err = trd.start()) != srs_success) {
         return srs_error_wrap(err, "queue recv thread");
@@ -281,7 +259,7 @@ void SrsQueueRecvThread::on_stop()
 }
 
 SrsPublishRecvThread::SrsPublishRecvThread(SrsRtmpServer* rtmp_sdk, SrsRequest* _req,
-	int mr_sock_fd, srs_utime_t tm, SrsRtmpConn* conn, SrsSource* source, SrsContextId parent_cid)
+	int mr_sock_fd, srs_utime_t tm, SrsRtmpConn* conn, SrsLiveSource* source, SrsContextId parent_cid)
     : trd(this, rtmp_sdk, tm, parent_cid)
 {
     rtmp = rtmp_sdk;
@@ -299,7 +277,6 @@ SrsPublishRecvThread::SrsPublishRecvThread(SrsRtmpServer* rtmp_sdk, SrsRequest* 
     mr_fd = mr_sock_fd;
     
     // the mr settings,
-    // @see https://github.com/ossrs/srs/issues/241
     mr = _srs_config->get_mr_enabled(req->vhost);
     mr_sleep = _srs_config->get_mr_sleep(req->vhost);
     
@@ -425,7 +402,6 @@ void SrsPublishRecvThread::interrupt(srs_error_t err)
     recv_error = srs_error_copy(err);
     
     // when recv thread error, signal the conn thread to process it.
-    // @see https://github.com/ossrs/srs/issues/244
     srs_cond_signal(error);
 }
 
@@ -440,7 +416,6 @@ void SrsPublishRecvThread::on_start()
         set_socket_buffer(mr_sleep);
         
         // disable the merge read
-        // @see https://github.com/ossrs/srs/issues/241
         rtmp->set_merge_read(true, this);
     }
 #endif
@@ -452,13 +427,11 @@ void SrsPublishRecvThread::on_stop()
     // for we donot set to false yet.
     
     // when thread stop, signal the conn thread which wait.
-    // @see https://github.com/ossrs/srs/issues/244
     srs_cond_signal(error);
     
 #ifdef SRS_PERF_MERGED_READ
     if (mr) {
         // disable the merge read
-        // @see https://github.com/ossrs/srs/issues/241
         rtmp->set_merge_read(false, NULL);
     }
 #endif
@@ -479,7 +452,6 @@ void SrsPublishRecvThread::on_read(ssize_t nread)
      * to improve read performance, merge some packets then read,
      * when it on and read small bytes, we sleep to wait more data.,
      * that is, we merge some data to read together.
-     * @see https://github.com/ossrs/srs/issues/241
      */
     if (nread < SRS_MR_SMALL_BYTES) {
         srs_usleep(mr_sleep);
@@ -496,7 +468,6 @@ srs_error_t SrsPublishRecvThread::on_reload_vhost_publish(string vhost)
     }
     
     // the mr settings,
-    // @see https://github.com/ossrs/srs/issues/241
     bool mr_enabled = _srs_config->get_mr_enabled(req->vhost);
     srs_utime_t sleep_v = _srs_config->get_mr_sleep(req->vhost);
     
@@ -509,13 +480,11 @@ srs_error_t SrsPublishRecvThread::on_reload_vhost_publish(string vhost)
     // mr enabled=>disabled
     if (mr && !mr_enabled) {
         // disable the merge read
-        // @see https://github.com/ossrs/srs/issues/241
         rtmp->set_merge_read(false, NULL);
     }
     // mr disabled=>enabled
     if (!mr && mr_enabled) {
         // enable the merge read
-        // @see https://github.com/ossrs/srs/issues/241
         rtmp->set_merge_read(true, this);
     }
 #endif

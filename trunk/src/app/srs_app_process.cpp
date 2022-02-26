@@ -1,25 +1,8 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Winlin
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
 
 #include <srs_app_process.hpp>
 
@@ -170,6 +153,30 @@ srs_error_t srs_redirect_output(string from_file, int to_fd)
     return err;
 }
 
+srs_error_t SrsProcess::redirect_io()
+{
+    srs_error_t err = srs_success;
+
+    // for the stdout, ignore when not specified.
+    // redirect stdout to file if possible.
+    if ((err = srs_redirect_output(stdout_file, STDOUT_FILENO)) != srs_success) {
+        return srs_error_wrap(err, "redirect stdout");
+    }
+
+    // for the stderr, ignore when not specified.
+    // redirect stderr to file if possible.
+    if ((err = srs_redirect_output(stderr_file, STDERR_FILENO)) != srs_success) {
+        return srs_error_wrap(err, "redirect stderr");
+    }
+
+    // No stdin for process, @bug https://github.com/ossrs/srs/issues/1592
+    if ((err = srs_redirect_output("/dev/null", STDIN_FILENO)) != srs_success) {
+        return srs_error_wrap(err, "redirect /dev/null");
+    }
+
+    return err;
+}
+
 srs_error_t SrsProcess::start()
 {
     srs_error_t err = srs_success;
@@ -199,24 +206,13 @@ srs_error_t SrsProcess::start()
         // ignore the SIGINT and SIGTERM
         signal(SIGINT, SIG_IGN);
         signal(SIGTERM, SIG_IGN);
-
-        // for the stdout, ignore when not specified.
-        // redirect stdout to file if possible.
-        if ((err = srs_redirect_output(stdout_file, STDOUT_FILENO)) != srs_success) {
-            return srs_error_wrap(err, "redirect output");
+        
+        // redirect standard I/O, if it failed, output error to stdout, and exit child process.
+        if ((err = redirect_io()) != srs_success) {
+            fprintf(stdout, "child process error, %s\n", srs_error_desc(err).c_str());
+            exit(-1);
         }
         
-        // for the stderr, ignore when not specified.
-        // redirect stderr to file if possible.
-        if ((err = srs_redirect_output(stderr_file, STDERR_FILENO)) != srs_success) {
-            return srs_error_wrap(err, "redirect output");
-        }
-
-        // No stdin for process, @bug https://github.com/ossrs/srs/issues/1592
-        if ((err = srs_redirect_output("/dev/null", STDIN_FILENO)) != srs_success) {
-            return srs_error_wrap(err, "redirect input");
-        }
-
         // should never close the fd 3+, for it myabe used.
         // for fd should close at exec, use fnctl to set it.
         

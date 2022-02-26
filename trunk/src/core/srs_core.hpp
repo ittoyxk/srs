@@ -1,25 +1,8 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Winlin
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
 
 #ifndef SRS_CORE_HPP
 #define SRS_CORE_HPP
@@ -40,13 +23,13 @@
 #define RTMP_SIG_SRS_CODE "Leo"
 #define RTMP_SIG_SRS_URL "https://github.com/ossrs/srs"
 #define RTMP_SIG_SRS_LICENSE "MIT"
-#define RTMP_SIG_SRS_AUTHORS "Winlin,Wenjie,Runner365,John,B.P.Y,Lixin"
+#define RTMP_SIG_SRS_AUTHORS "https://github.com/ossrs/srs/blob/4.0release/trunk/AUTHORS.txt"
 #define RTMP_SIG_SRS_VERSION SRS_XSTR(VERSION_MAJOR) "." SRS_XSTR(VERSION_MINOR) "." SRS_XSTR(VERSION_REVISION)
 #define RTMP_SIG_SRS_SERVER RTMP_SIG_SRS_KEY "/" RTMP_SIG_SRS_VERSION "(" RTMP_SIG_SRS_CODE ")"
 #define RTMP_SIG_SRS_DOMAIN "ossrs.net"
 
 // The current stable release.
-#define VERSION_STABLE 3
+#define VERSION_STABLE 4
 #define VERSION_STABLE_BRANCH SRS_XSTR(VERSION_STABLE) ".0release"
 
 // For 32bit os, 2G big file limit for unistd io,
@@ -71,7 +54,9 @@
 #endif
 
 #include <assert.h>
+#ifndef srs_assert
 #define srs_assert(expression) assert(expression)
+#endif
 
 #include <stddef.h>
 #include <sys/types.h>
@@ -98,13 +83,9 @@
     } \
     (void)0
 
-// For librtmp, it is pure c++ and supports all OS.
-#ifndef SRS_EXPORT_LIBRTMP
-    // Checking for st(state-threads), only support the following cpus: i386/amd64/x86_64/arm
-    // @reamrk To patch ST for arm, read https://github.com/ossrs/state-threads/issues/1
-    #if !defined(__amd64__) && !defined(__x86_64__) && !defined(__i386__) && !defined(__arm__) && !defined(__aarch64__)
-        #error "only support i386/amd64/x86_64/arm cpu"
-    #endif
+// Check CPU for ST(state-threads), please read https://github.com/ossrs/state-threads/issues/22
+#if !defined(__amd64__) && !defined(__x86_64__) && !defined(__i386__) && !defined(__arm__) && !defined(__aarch64__) && !defined(__mips__)
+    #error "Only support i386/amd64/x86_64/arm/aarch64/mips cpu"
 #endif
 
 // Error predefined for all modules.
@@ -113,7 +94,7 @@ typedef SrsCplxError* srs_error_t;
 
 #include <string>
 // The context ID, it default to a string object, we can also use other objects.
-// @remark User can directly user string as SrsContextId, we user struct to ensure the context is an object.
+// @remark User can directly use string as SrsContextId, we use struct to ensure the context is an object.
 #if 1
 class _SrsContextId
 {

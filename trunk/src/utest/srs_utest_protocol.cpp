@@ -1,25 +1,8 @@
-/*
-The MIT License (MIT)
-
-Copyright (c) 2013-2021 Winlin
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so,
-subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
 #include <srs_utest_protocol.hpp>
 
 using namespace std;
@@ -744,7 +727,6 @@ VOID TEST(ProtocolStackTest, ProtocolRecvMessage)
 // 0x04             where: message_type=4(protocol control user-control message)
 // 0x00 0x06            where: event Ping(0x06)
 // 0x00 0x00 0x0d 0x0f  where: event data 4bytes ping timestamp.
-// @see: https://github.com/ossrs/srs/issues/98
 VOID TEST(ProtocolStackTest, ProtocolRecvMessageBug98)
 {
     MockBufferIO bio;
@@ -3841,7 +3823,6 @@ VOID TEST(ProtocolStackTest, ProtocolRecvExtTimeMessage2)
 * always use 31bits timestamp.
 */
 // always use 31bits timestamp, for some server may use 32bits extended timestamp.
-// @see https://github.com/ossrs/srs/issues/111
 VOID TEST(ProtocolStackTest, ProtocolRecvExtTimeMessage3)
 {
     MockBufferIO bio;

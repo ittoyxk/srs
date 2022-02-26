@@ -1,25 +1,8 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Winlin
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
 
 #ifndef SRS_PROTOCOL_RTMP_HPP
 #define SRS_PROTOCOL_RTMP_HPP
@@ -30,7 +13,6 @@
 #include <vector>
 #include <string>
 
-// For srs-librtmp, @see https://github.com/ossrs/srs/issues/213
 #ifndef _WIN32
 #include <sys/uio.h>
 #endif
@@ -147,19 +129,6 @@ protected:
     virtual srs_error_t encode_packet(SrsBuffer* stream);
 };
 
-// The performance statistic data collect.
-class ISrsProtocolPerf
-{
-public:
-    ISrsProtocolPerf();
-    virtual ~ISrsProtocolPerf();
-public:
-    // Stat for packets merged written, nb_msgs is the number of RTMP messages,
-    virtual void perf_on_msgs(int nb_msgs) = 0;
-    // Stat for TCP writev, nb_iovs is the total number of iovec.
-    virtual void perf_on_writev_iovs(int nb_iovs) = 0;
-};
-
 // The protocol provides the rtmp-message-protocol services,
 // To recv RTMP message from RTMP chunk stream,
 // and to send out RTMP message over RTMP chunk stream.
@@ -181,8 +150,6 @@ private:
 private:
     // The underlayer socket object, send/recv bytes.
     ISrsProtocolReadWriter* skt;
-    // The performance stat handler.
-    ISrsProtocolPerf* perf;
     // The requests sent out, used to build the response.
     // key: transactionId
     // value: the request command name
@@ -193,7 +160,6 @@ private:
     std::map<int, SrsChunkStream*> chunk_streams;
     // Cache some frequently used chunk header.
     // cs_cache, the chunk stream cache.
-    // @see https://github.com/ossrs/srs/issues/249
     SrsChunkStream** cs_cache;
     // The bytes buffer cache, recv from skt, provide services for stream.
     SrsFastStream* in_buffer;
@@ -211,7 +177,6 @@ private:
     bool show_debug_info;
     // Whether auto response when recv messages.
     // default to true for it's very easy to use the protocol stack.
-    // @see: https://github.com/ossrs/srs/issues/217
     bool auto_response_when_recv;
     // When not auto response message, manual flush the messages in queue.
     std::vector<SrsPacket*> manual_response_queue;
@@ -240,10 +205,7 @@ public:
 public:
     // Set the auto response message when recv for protocol stack.
     // @param v, whether auto response message when recv message.
-    // @see: https://github.com/ossrs/srs/issues/217
     virtual void set_auto_response(bool v);
-    // Set the performance stat handler.
-    virtual void set_perf(ISrsProtocolPerf* v);
     // Flush for manual response when the auto response is disabled
     // by set_auto_response(false), we default use auto response, so donot
     // need to call this api(the protocol sdk will auto send message).
@@ -256,13 +218,11 @@ public:
     // that is, we merge some data to read together.
     // @param v true to ename merged read.
     // @param handler the handler when merge read is enabled.
-    // @see https://github.com/ossrs/srs/issues/241
     virtual void set_merge_read(bool v, IMergeReadHandler* handler);
     // Create buffer with specifeid size.
     // @param buffer the size of buffer.
     // @remark when MR(SRS_PERF_MERGED_READ) disabled, always set to 8K.
     // @remark when buffer changed, the previous ptr maybe invalid.
-    // @see https://github.com/ossrs/srs/issues/241
     virtual void set_recv_buffer(int buffer_size);
 #endif
 public:
@@ -463,7 +423,6 @@ public:
     std::string stream;
     // For play live stream,
     // used to specified the stop when exceed the duration.
-    // @see https://github.com/ossrs/srs/issues/45
     // in srs_utime_t.
     srs_utime_t duration;
     // The token in the connect request,
@@ -510,6 +469,8 @@ enum SrsRtmpConnType
     SrsRtmpConnFMLEPublish,
     SrsRtmpConnFlashPublish,
     SrsRtmpConnHaivisionPublish,
+    SrsRtcConnPlay,
+    SrsRtcConnPublish,
 };
 std::string srs_client_type_string(SrsRtmpConnType type);
 bool srs_client_type_is_publish(SrsRtmpConnType type);
@@ -646,23 +607,18 @@ public:
 public:
     // Set the auto response message when recv for protocol stack.
     // @param v, whether auto response message when recv message.
-    // @see: https://github.com/ossrs/srs/issues/217
     virtual void set_auto_response(bool v);
-    // Set the performance stat handler.
-    virtual void set_perf(ISrsProtocolPerf* v);
 #ifdef SRS_PERF_MERGED_READ
     // To improve read performance, merge some packets then read,
     // When it on and read small bytes, we sleep to wait more data.,
     // that is, we merge some data to read together.
     // @param v true to ename merged read.
     // @param handler the handler when merge read is enabled.
-    // @see https://github.com/ossrs/srs/issues/241
     virtual void set_merge_read(bool v, IMergeReadHandler* handler);
     // Create buffer with specifeid size.
     // @param buffer the size of buffer.
     // @remark when MR(SRS_PERF_MERGED_READ) disabled, always set to 8K.
     // @remark when buffer changed, the previous ptr maybe invalid.
-    // @see https://github.com/ossrs/srs/issues/241
     virtual void set_recv_buffer(int buffer_size);
 #endif
     // To set/get the recv timeout in srs_utime_t.
@@ -703,7 +659,6 @@ public:
     // @param stream_id, the stream id of packet to send over, 0 for control message.
     //
     // @remark performance issue, to support 6k+ 250kbps client,
-    //       @see https://github.com/ossrs/srs/issues/194
     virtual srs_error_t send_and_free_messages(SrsSharedPtrMessage** msgs, int nb_msgs, int stream_id);
     // Send the RTMP packet and always free it.
     // user must never free or use the packet after this method,
@@ -1364,11 +1319,9 @@ public:
     // Name of command. Set to "|RtmpSampleAccess".
     std::string command_name;
     // Whether allow access the sample of video.
-    // @see: https://github.com/ossrs/srs/issues/49
     // @see: http://help.adobe.com/en_US/FlashPlatform/reference/actionscript/3/flash/net/NetStream.html#videoSampleAccess
     bool video_sample_access;
     // Whether allow access the sample of audio.
-    // @see: https://github.com/ossrs/srs/issues/49
     // @see: http://help.adobe.com/en_US/FlashPlatform/reference/actionscript/3/flash/net/NetStream.html#audioSampleAccess
     bool audio_sample_access;
 public:

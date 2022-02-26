@@ -15,11 +15,20 @@
     点击进入<a class="srs_demo" href="room.html?autostart=true">SRS多人通话演示</a>
 </p>
 <script>
-    let roomName = Number(new Date().getTime() + parseInt(String(Math.random() * 10000000000))).toString(16).substr(3);
+    let roomName = Number(parseInt(new Date().getTime()*Math.random()*100)).toString(16).substr(0, 7);
     let elems = document.getElementsByClassName('srs_demo');
     for (var i = 0; i < elems.length; i++) {
         let elem = elems.item(i);
-        elem.setAttribute('href', elem.getAttribute('href') + '&room=' + roomName);
+
+        // Use random room.
+        let href = elem.getAttribute('href') + '&room=' + roomName;
+
+        // For run demos on SRS http server.
+        if (window.location.port === '8080') {
+            href += '&wsp=1989';
+        }
+
+        elem.setAttribute('href', href);
     }
 </script>
 </body>

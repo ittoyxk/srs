@@ -1,25 +1,8 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Winlin
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
 
 #ifndef SRS_KERNEL_ERROR_HPP
 #define SRS_KERNEL_ERROR_HPP
@@ -367,31 +350,6 @@
 #define ERROR_RTC_DUPLICATED_SSRC           5029
 #define ERROR_RTC_NO_TRACK                  5030
 #define ERROR_RTC_RTCP_EMPTY_RR             5031
-
-///////////////////////////////////////////////////////
-// GB28181 API error.
-///////////////////////////////////////////////////////
-#define ERROR_GB28181_SERVER_NOT_RUN        6000
-#define ERROR_GB28181_SESSION_IS_EXIST      6001
-#define ERROR_GB28181_SESSION_IS_NOTEXIST   6002
-#define ERROR_GB28181_RTP_PORT_FULL         6003
-#define ERROR_GB28181_PORT_MODE_INVALID     6004
-#define ERROR_GB28181_VALUE_EMPTY           6005  
-#define ERROR_GB28181_ACTION_INVALID        6006 
-#define ERROR_GB28181_SIP_NOT_RUN           6007 
-#define ERROR_GB28181_SIP_INVITE_FAILED     6008
-#define ERROR_GB28181_SIP_BYE_FAILED        6009
-#define ERROR_GB28181_SIP_IS_INVITING       6010
-#define ERROR_GB28181_CREATER_RTMPMUXER_FAILED 6011
-#define ERROR_GB28181_SIP_CH_OFFLINE        6012
-#define ERROR_GB28181_SIP_CH_NOTEXIST       6013
-#define ERROR_GB28181_SIP_RAW_DATA_FAILED   6014
-#define ERROR_GB28181_SIP_PRASE_FAILED      6015
-#define ERROR_GB28181_SIP_PTZ_FAILED        6016
-#define ERROR_GB28181_SIP_NOT_INVITE        6017
-#define ERROR_GB28181_SIP_PTZ_CMD_INVALID   6018
-#define ERROR_GB28181_H264_FRAMESIZE        6019
-#define ERROR_GB28181_H264_FRAME_FULL       6020
 
 ///////////////////////////////////////////////////////
 // HTTP API error.

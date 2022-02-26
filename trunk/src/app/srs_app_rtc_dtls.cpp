@@ -1,25 +1,8 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Winlin
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
 
 #include <srs_app_rtc_dtls.hpp>
 
@@ -36,10 +19,15 @@ using namespace std;
 #include <srs_kernel_rtc_rtp.hpp>
 #include <srs_app_log.hpp>
 #include <srs_kernel_utility.hpp>
+#include <srs_protocol_utility.hpp>
 
 #include <srtp2/srtp.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+
+// to avoid dtls negotiate failed, set max fragment size 1200.
+// @see https://github.com/ossrs/srs/issues/2415
+const int DTLS_FRAGMENT_MAX_SIZE = 1200;
 
 // Defined in HTTP/HTTPS client.
 extern int srs_verify_callback(int preverify_ok, X509_STORE_CTX *ctx);
@@ -314,7 +302,7 @@ srs_error_t SrsDtlsCertificate::initialize()
         X509_NAME* subject = X509_NAME_new();
         srs_assert(subject);
 
-        int serial = rand();
+        int serial = (int)srs_random();
         ASN1_INTEGER_set(X509_get_serialNumber(dtls_cert), serial);
 
         const std::string& aor = RTMP_SIG_SRS_DOMAIN;
@@ -455,7 +443,7 @@ srs_error_t SrsDtlsImpl::initialize(std::string version, std::string role)
     // set dtls fragment
     // @see https://stackoverflow.com/questions/62413602/openssl-server-packets-get-fragmented-into-270-bytes-per-packet
     SSL_set_options(dtls, SSL_OP_NO_QUERY_MTU);
-    SSL_set_mtu(dtls, kRtpPacketSize);
+    SSL_set_mtu(dtls, DTLS_FRAGMENT_MAX_SIZE);
 
     // @see https://linux.die.net/man/3/openssl_version_number
     //                MM NN FF PP S
@@ -715,7 +703,7 @@ srs_error_t SrsDtlsClientImpl::initialize(std::string version, std::string role)
 
     // Dtls setup active, as client role.
     SSL_set_connect_state(dtls);
-    SSL_set_max_send_fragment(dtls, kRtpPacketSize);
+    SSL_set_max_send_fragment(dtls, DTLS_FRAGMENT_MAX_SIZE);
 
     return err;
 }

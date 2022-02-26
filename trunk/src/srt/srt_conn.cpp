@@ -1,29 +1,13 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Runner365
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Runner365
+//
+// SPDX-License-Identifier: MIT
+//
 
 #include "srt_conn.hpp"
 #include "time_help.h"
 #include "stringex.hpp"
+#include "srt_log.hpp"
 #include <vector>
 
 #include <srs_app_config.hpp>
@@ -138,7 +122,8 @@ bool get_streamid_info(const std::string& streamid, int& mode, std::string& url_
 }
 
 srt_conn::srt_conn(SRTSOCKET conn_fd, const std::string& streamid):_conn_fd(conn_fd),
-    _streamid(streamid) {
+    _streamid(streamid),
+    write_fail_cnt_(0) {
     get_streamid_info(streamid, _mode, _url_subpath);
     
     _update_timestamp = now_ms();
@@ -151,7 +136,7 @@ srt_conn::srt_conn(SRTSOCKET conn_fd, const std::string& streamid):_conn_fd(conn
     } else {
         _vhost = "__default_host__";
     }
-    srs_trace("srt connect construct streamid:%s, mode:%d, subpath:%s, vhost:%s", 
+    srt_log_trace("srt connect construct streamid:%s, mode:%d, subpath:%s, vhost:%s", 
         streamid.c_str(), _mode, _url_subpath.c_str(), _vhost.c_str());
 }
 
@@ -199,7 +184,7 @@ int srt_conn::read(unsigned char* data, int len) {
 
     ret = srt_recv(_conn_fd, (char*)data, len);
     if (ret <= 0) {
-        srs_error("srt read error:%d, socket fd:%d", ret, _conn_fd);
+        srt_log_error("srt read error:%d, socket fd:%d", ret, _conn_fd);
         return ret;
     }
     return ret;
@@ -210,8 +195,14 @@ int srt_conn::write(unsigned char* data, int len) {
 
     ret = srt_send(_conn_fd, (char*)data, len);
     if (ret <= 0) {
-        srs_error("srt write error:%d, socket fd:%d", ret, _conn_fd);
+        srt_log_error("srt write error:%d, socket fd:%d", ret, _conn_fd);
+        write_fail_cnt_++;
         return ret;
     }
+    write_fail_cnt_ = 0;
     return ret;
+}
+
+int srt_conn::get_write_fail_count() {
+    return write_fail_cnt_;
 }

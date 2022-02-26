@@ -1,29 +1,11 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Winlin
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
 
 #include <srs_kernel_utility.hpp>
 
-// for srs-librtmp, @see https://github.com/ossrs/srs/issues/213
 #ifndef _WIN32
 #include <unistd.h>
 #include <netdb.h>
@@ -119,7 +101,7 @@ srs_utime_t srs_get_system_startup_time()
     if (_srs_system_time_startup_time <= 0) {
         srs_update_system_time();
     }
-    
+
     return _srs_system_time_startup_time;
 }
 
@@ -137,7 +119,6 @@ srs_utime_t srs_update_system_time()
         return -1;
     }
     
-    // @see: https://github.com/ossrs/srs/issues/35
     // we must convert the tv_sec/tv_usec to int64_t.
     int64_t now_us = ((int64_t)now.tv_sec) * 1000 * 1000 + (int64_t)now.tv_usec;
     
@@ -157,7 +138,6 @@ srs_utime_t srs_update_system_time()
     diff = srs_max(0, diff);
     if (diff < 0 || diff > 1000 * SYS_TIME_RESOLUTION_US) {
         srs_warn("clock jump, history=%" PRId64 "us, now=%" PRId64 "us, diff=%" PRId64 "us", _srs_system_time_us_cache, now_us, diff);
-        // @see: https://github.com/ossrs/srs/issues/109
         _srs_system_time_startup_time += diff;
     }
     
@@ -175,7 +155,7 @@ string srs_dns_resolve(string host, int& family)
     hints.ai_family = family;
     
     addrinfo* r = NULL;
-    SrsAutoFree(addrinfo, r);
+    SrsAutoFreeH(addrinfo, r, freeaddrinfo);
     if(getaddrinfo(host.c_str(), NULL, &hints, &r)) {
         return "";
     }
@@ -209,7 +189,7 @@ void srs_parse_hostport(string hostport, string& host, int& port)
     if (hostport.find(":") == pos) {
         host = hostport.substr(0, pos);
         string p = hostport.substr(pos + 1);
-        if (!p.empty()) {
+        if (!p.empty() && p != "0") {
             port = ::atoi(p.c_str());
         }
         return;
@@ -224,7 +204,7 @@ void srs_parse_hostport(string hostport, string& host, int& port)
     // For ipv6, [host]:port.
     host = hostport.substr(1, pos - 1);
     string p = hostport.substr(pos + 2);
-    if (!p.empty()) {
+    if (!p.empty() && p != "0") {
         port = ::atoi(p.c_str());
     }
 }
@@ -273,6 +253,24 @@ void srs_parse_endpoint(string hostport, string& ip, int& port)
         ip = srs_any_address_for_listener();
         port = ::atoi(hostport.c_str());
     }
+}
+
+bool srs_check_ip_addr_valid(string ip)
+{
+    unsigned char buf[sizeof(struct in6_addr)];
+
+    // check ipv4
+    int ret = inet_pton(AF_INET, ip.data(), buf);
+    if (ret > 0) {
+        return true;
+    }
+        
+    ret = inet_pton(AF_INET6, ip.data(), buf);
+    if (ret > 0) {
+        return true;
+    }
+        
+    return false;
 }
 
 string srs_int2str(int64_t value)
@@ -325,6 +323,7 @@ string srs_string_replace(string str, string old_str, string new_str)
     size_t pos = 0;
     while ((pos = ret.find(old_str, pos)) != std::string::npos) {
         ret = ret.replace(pos, old_str.length(), new_str);
+        pos += new_str.length();
     }
     
     return ret;
@@ -578,7 +577,6 @@ int srs_do_create_dir_recursively(string dir)
     }
     
     // create curren dir.
-    // for srs-librtmp, @see https://github.com/ossrs/srs/issues/213
 #ifdef _WIN32
     if (::_mkdir(dir.c_str()) < 0) {
 #else

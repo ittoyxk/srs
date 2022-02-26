@@ -1,25 +1,8 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Winlin
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
 
 #include <srs_core.hpp>
 
@@ -1317,28 +1300,11 @@ void json_value_free (json_value * value)
 #endif
 // LCOV_EXCL_STOP
 
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Winlin
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
 
 #include <srs_protocol_json.hpp>
 
@@ -1572,16 +1538,30 @@ SrsJsonArray* SrsJsonAny::to_array()
     return p;
 }
 
-string escape(string v)
+// @see https://github.com/ossrs/srs/pull/1758/files#diff-9568479ef5cb0aa1ade2381e11e9c066c01bf9c4bbed70ffa27094d08bb27380R370
+// @see https://github.com/json-parser/json-builder/blob/2d8c6671926d104c5dcd43ccd2b1431a3f0299e0/json-builder.c#L495
+string json_serialize_string(const string& v)
 {
     stringstream ss;
 
-    for (int i = 0; i < (int)v.length(); i++) {
-        if (v.at(i) == '"') {
-            ss << '\\';
+    ss << "\"";
+
+    const char* start = v.data();
+    const char* end = start + v.length();
+    for (const char* p = start; p < end; ++p) {
+        switch (*p) {
+            case '"': ss << '\\' << '"'; break;
+            case '\\': ss << '\\' << '\\'; break;
+            case '\b': ss << '\\' << 'b'; break;
+            case '\f': ss << '\\' << 'f'; break;
+            case '\n': ss << '\\' << 'n'; break;
+            case '\r': ss << '\\' << 'r'; break;
+            case '\t': ss << '\\' << 't'; break;
+            default: ss << *p;
         }
-        ss << v.at(i);
     }
+
+    ss << "\"";
 
     return ss.str();
 }
@@ -1590,7 +1570,9 @@ string SrsJsonAny::dumps()
 {
     switch (marker) {
         case SRS_JSON_String: {
-            return "\"" + escape(to_str()) + "\"";
+            SrsJsonString* p = dynamic_cast<SrsJsonString*>(this);
+            srs_assert(p != NULL);
+            return json_serialize_string(p->value);
         }
         case SRS_JSON_Boolean: {
             return to_boolean()? "true" : "false";

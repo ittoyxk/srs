@@ -1,25 +1,8 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Winlin
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
 
 #ifndef SRS_KERNEL_MP4_HPP
 #define SRS_KERNEL_MP4_HPP
@@ -53,6 +36,7 @@ class SrsMp4AvccBox;
 class SrsMp4AudioSampleEntry;
 class SrsMp4EsdsBox;
 class SrsMp4ChunkOffsetBox;
+class SrsMp4ChunkLargeOffsetBox;
 class SrsMp4SampleSizeBox;
 class SrsMp4Sample2ChunkBox;
 class SrsMp4DecodingTime2SampleBox;
@@ -1205,6 +1189,9 @@ public:
     // Get the chunk offset box.
     virtual SrsMp4ChunkOffsetBox* stco();
     virtual void set_stco(SrsMp4ChunkOffsetBox* v);
+    // Get the chunk large offset box.
+    virtual SrsMp4ChunkLargeOffsetBox* co64();
+    virtual void set_co64(SrsMp4ChunkLargeOffsetBox* v);
     // Get the sample size box.
     virtual SrsMp4SampleSizeBox* stsz();
     virtual void set_stsz(SrsMp4SampleSizeBox* v);
@@ -1919,7 +1906,7 @@ public:
 private:
     virtual srs_error_t write_track(SrsFrameType track,
         SrsMp4DecodingTime2SampleBox* stts, SrsMp4SyncSampleBox* stss, SrsMp4CompositionTime2SampleBox* ctts,
-        SrsMp4Sample2ChunkBox* stsc, SrsMp4SampleSizeBox* stsz, SrsMp4ChunkOffsetBox* stco);
+        SrsMp4Sample2ChunkBox* stsc, SrsMp4SampleSizeBox* stsz, SrsMp4FullBox* co);
     virtual srs_error_t do_load(std::map<uint64_t, SrsMp4Sample*>& tses, SrsMp4MovieBox* moov);
 private:
     // Load the samples of track from stco, stsz and stsc.

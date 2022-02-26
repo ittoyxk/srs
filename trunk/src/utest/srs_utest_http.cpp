@@ -1,25 +1,8 @@
-/*
-The MIT License (MIT)
-
-Copyright (c) 2013-2021 Winlin
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so,
-subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
 #include <srs_utest_http.hpp>
 
 #include <sstream>
@@ -160,6 +143,21 @@ string mock_http_response2(int status, string content)
     return ss.str();
 }
 
+string mock_http_response3(int status, string content)
+{
+    stringstream ss;
+    ss << "HTTP/1.1 " << status << " " << srs_generate_http_status_text(status) << "\r\n"
+        << "Server:" << "\r\n"
+        << "\r\n"
+        << content;
+    return ss.str();
+}
+
+bool is_string_contain(string substr, string str)
+{
+    return (string::npos != str.find(substr));
+}
+
 class MockFileReaderFactory : public ISrsFileReaderFactory
 {
 public:
@@ -174,7 +172,7 @@ public:
     }
 };
 
-class MockHttpHandler : virtual public ISrsHttpHandler, virtual public ISrsHttpMatchHijacker
+class MockHttpHandler : public ISrsHttpHandler, public ISrsHttpMatchHijacker
 {
 public:
     string bytes;
@@ -533,6 +531,17 @@ VOID TEST(ProtocolHTTPTest, ClientRequest)
     // Normal case, with specified content-length.
     if (true) {
         MockBufferIO io; io.append(mock_http_response(200, "Hello, world!"));
+        SrsHttpParser hp; HELPER_ASSERT_SUCCESS(hp.initialize(HTTP_RESPONSE));
+        ISrsHttpMessage* msg = NULL; HELPER_ASSERT_SUCCESS(hp.parse_message(&io, &msg));
+        string res; HELPER_ASSERT_SUCCESS(msg->body_read_all(res));
+        EXPECT_EQ(200, msg->status_code());
+        EXPECT_STREQ("Hello, world!", res.c_str());
+        srs_freep(msg);
+    }
+    
+    // Normal case, with empty server.
+    if(true) {
+        MockBufferIO io; io.append(mock_http_response3(200, "Hello, world!"));
         SrsHttpParser hp; HELPER_ASSERT_SUCCESS(hp.initialize(HTTP_RESPONSE));
         ISrsHttpMessage* msg = NULL; HELPER_ASSERT_SUCCESS(hp.parse_message(&io, &msg));
         string res; HELPER_ASSERT_SUCCESS(msg->body_read_all(res));
@@ -1199,6 +1208,42 @@ VOID TEST(ProtocolHTTPTest, VodStreamHandlers)
 
         HELPER_ASSERT_SUCCESS(h.serve_http(&w, &r));
         __MOCK_HTTP_EXPECT_STREQ(200, "Hello, world!", w);
+    }
+
+    // should return "hls_ctx"
+    if (true) {
+        SrsHttpMuxEntry e;
+        e.pattern = "/";
+
+        SrsVodStream h("/tmp");
+        h.set_fs_factory(new MockFileReaderFactory("Hello, world!"));
+        h.set_path_check(_mock_srs_path_always_exists);
+        h.entry = &e;
+
+        MockResponseWriter w;
+        SrsHttpMessage r(NULL, NULL);
+        HELPER_ASSERT_SUCCESS(r.set_url("/index.m3u8", false));
+
+        HELPER_ASSERT_SUCCESS(h.serve_http(&w, &r));
+        __MOCK_HTTP_EXPECT_STRCT(200, "index.m3u8?hls_ctx=", w);
+    }
+
+    // should return "hls_ctx"
+    if (true) {
+        SrsHttpMuxEntry e;
+        e.pattern = "/";
+
+        SrsVodStream h("/tmp");
+        h.set_fs_factory(new MockFileReaderFactory("Hello, world!"));
+        h.set_path_check(_mock_srs_path_always_exists);
+        h.entry = &e;
+
+        MockResponseWriter w;
+        SrsHttpMessage r(NULL, NULL);
+        HELPER_ASSERT_SUCCESS(r.set_url("/index.m3u8?hls_ctx=123456", false));
+
+        HELPER_ASSERT_SUCCESS(h.serve_http(&w, &r));
+        __MOCK_HTTP_EXPECT_STRCT(200, "index.m3u8?hls_ctx=123456", w);
     }
 }
 

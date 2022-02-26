@@ -1,25 +1,8 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Runner365
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Runner365
+//
+// SPDX-License-Identifier: MIT
+//
 
 #ifndef SRT_TO_RTMP_H
 #define SRT_TO_RTMP_H
@@ -41,6 +24,7 @@
 
 #include "srt_data.hpp"
 #include "ts_demux.hpp"
+#include "srt_log.hpp"
 
 #define SRT_VIDEO_MSG_TYPE 0x01
 #define SRT_AUDIO_MSG_TYPE 0x02
@@ -85,9 +69,9 @@ private:
 class rtmp_client : public ts_media_data_callback_I, public std::enable_shared_from_this<rtmp_client> {
 public:
     rtmp_client(std::string key_path);
-    ~rtmp_client();
+    virtual ~rtmp_client();
 
-    void receive_ts_data(SRT_DATA_MSG_PTR data_ptr);
+    int receive_ts_data(SRT_DATA_MSG_PTR data_ptr);
     int64_t get_last_live_ts();
     std::string get_url();
 
@@ -95,7 +79,7 @@ public:
     void close();
 
 private:
-    virtual void on_data_callback(SRT_DATA_MSG_PTR data_ptr, unsigned int media_type, uint64_t dts, uint64_t pts);
+    virtual int on_data_callback(SRT_DATA_MSG_PTR data_ptr, unsigned int media_type, uint64_t dts, uint64_t pts);
 
 private:
     srs_error_t on_ts_video(std::shared_ptr<SrsBuffer> avs_ptr, uint64_t dts, uint64_t pts);
@@ -106,7 +90,7 @@ private:
 
     int get_sample_rate(char sound_rate);
 
-    void rtmp_write_work();
+    srs_error_t rtmp_write_work();
 
 private:
     virtual srs_error_t rtmp_write_packet(char type, uint32_t timestamp, char* data, int size);
@@ -151,12 +135,14 @@ public:
 
     void insert_data_message(unsigned char* data_p, unsigned int len, const std::string& key_path);
     void insert_ctrl_message(unsigned int msg_type, const std::string& key_path);
+    void insert_log_message(LOGGER_LEVEL level, const std::string& log_content);
 
 private:
     SRT_DATA_MSG_PTR get_data_message();
     virtual srs_error_t cycle();
-    void handle_ts_data(SRT_DATA_MSG_PTR data_ptr);
+    int handle_ts_data(SRT_DATA_MSG_PTR data_ptr);
     void handle_close_rtmpsession(const std::string& key_path);
+    void handle_log_data(SRT_DATA_MSG_PTR data_ptr);
     void check_rtmp_alive();
 
 private:
@@ -168,6 +154,9 @@ private:
 
     std::unordered_map<std::string, RTMP_CLIENT_PTR> _rtmp_client_map;
     int64_t _lastcheck_ts;
+public:
+    static std::mutex _srt_error_mutex;
+    static std::map<std::string, int> _srt_error_map;
 };
 
 #endif

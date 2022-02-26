@@ -1,25 +1,8 @@
-/*
-The MIT License (MIT)
-
-Copyright (c) 2013-2021 Winlin
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so,
-subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
 #include <srs_utest_rtmp.hpp>
 
 #include <srs_kernel_error.hpp>
@@ -1225,16 +1208,20 @@ VOID TEST(ProtocolRTMPTest, RecvMessage3)
     }
 
     if (true) {
-        EXPECT_STREQ("Play", srs_client_type_string(SrsRtmpConnPlay).c_str());
+        EXPECT_STREQ("rtmp-play", srs_client_type_string(SrsRtmpConnPlay).c_str());
+        EXPECT_STREQ("rtc-play", srs_client_type_string(SrsRtcConnPlay).c_str());
+        EXPECT_STREQ("rtc-publish", srs_client_type_string(SrsRtcConnPublish).c_str());
         EXPECT_STREQ("flash-publish", srs_client_type_string(SrsRtmpConnFlashPublish).c_str());
         EXPECT_STREQ("fmle-publish", srs_client_type_string(SrsRtmpConnFMLEPublish).c_str());
         EXPECT_STREQ("haivision-publish", srs_client_type_string(SrsRtmpConnHaivisionPublish).c_str());
         EXPECT_STREQ("Unknown", srs_client_type_string(SrsRtmpConnType(0x0f)).c_str());
 
         EXPECT_TRUE(srs_client_type_is_publish(SrsRtmpConnFlashPublish));
+        EXPECT_TRUE(srs_client_type_is_publish(SrsRtcConnPublish));
         EXPECT_TRUE(srs_client_type_is_publish(SrsRtmpConnFMLEPublish));
         EXPECT_TRUE(srs_client_type_is_publish(SrsRtmpConnHaivisionPublish));
         EXPECT_FALSE(srs_client_type_is_publish(SrsRtmpConnPlay));
+        EXPECT_FALSE(srs_client_type_is_publish(SrsRtcConnPlay));
     }
 }
 

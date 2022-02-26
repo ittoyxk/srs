@@ -1,25 +1,8 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Runner365
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Runner365
+//
+// SPDX-License-Identifier: MIT
+//
 
 #include "srt_data.hpp"
 #include <string.h>
@@ -46,14 +29,25 @@ SRT_DATA_MSG::SRT_DATA_MSG(unsigned char* data_p, unsigned int len, const std::s
     memcpy(_data_p, data_p, len);
 }
 
+SRT_DATA_MSG::SRT_DATA_MSG(LOGGER_LEVEL log_level, const std::string& log_content): _msg_type(SRT_MSG_LOG_TYPE)
+    ,_log_content(log_content)
+    ,_log_level(log_level)
+{
+
+}
+
 SRT_DATA_MSG::~SRT_DATA_MSG() {
     if (_data_p && (_len > 0)) {
-        delete _data_p;
+        delete[] _data_p;
     }
 }
 
 unsigned int SRT_DATA_MSG::msg_type() {
     return _msg_type;
+}
+
+void SRT_DATA_MSG::set_msg_type(unsigned int msg_type) {
+    _msg_type = msg_type;
 }
 
 std::string SRT_DATA_MSG::get_path() {
@@ -66,4 +60,12 @@ unsigned int SRT_DATA_MSG::data_len() {
 
 unsigned char* SRT_DATA_MSG::get_data() {
     return _data_p;
+}
+
+LOGGER_LEVEL SRT_DATA_MSG::get_log_level() {
+    return _log_level;
+}
+
+const char* SRT_DATA_MSG::get_log_string() {
+    return _log_content.c_str();
 }

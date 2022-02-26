@@ -1,28 +1,12 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 John
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 John
+//
+// SPDX-License-Identifier: MIT
+//
 
 #include <srs_app_rtc_server.hpp>
 
+#include <set>
 using namespace std;
 
 #include <srs_app_config.hpp>
@@ -44,6 +28,7 @@ using namespace std;
 #include <srs_app_rtc_source.hpp>
 #include <srs_app_rtc_api.hpp>
 #include <srs_protocol_utility.hpp>
+#include <srs_service_log.hpp>
 
 extern SrsPps* _srs_pps_rpkts;
 SrsPps* _srs_pps_rstuns = NULL;
@@ -165,18 +150,65 @@ bool srs_is_rtcp(const uint8_t* data, size_t len)
     return (len >= 12) && (data[0] & 0x80) && (data[1] >= 192 && data[1] <= 223);
 }
 
-static std::vector<std::string> get_candidate_ips()
+srs_error_t api_server_as_candidates(string api, set<string>& candidate_ips)
 {
-    std::vector<std::string> candidate_ips;
+    srs_error_t err = srs_success;
 
+    if (api.empty() || !_srs_config->get_api_as_candidates()) {
+        return err;
+    }
+
+    SrsHttpUri uri;
+    if ((err = uri.initialize(api)) != srs_success) {
+        return srs_error_wrap(err, "parse %s", api.c_str());
+    }
+
+    string hostname = uri.get_host();
+    if (hostname.empty() || hostname == SRS_CONSTS_LOCALHOST_NAME) {
+        return err;
+    }
+    if (hostname == SRS_CONSTS_LOCALHOST || hostname == SRS_CONSTS_LOOPBACK || hostname == SRS_CONSTS_LOOPBACK6) {
+        return err;
+    }
+
+    // Try to parse the domain name if not IP.
+    int family = 0;
+    string ip = srs_dns_resolve(hostname, family);
+    if (ip.empty() || ip == SRS_CONSTS_LOCALHOST || ip == SRS_CONSTS_LOOPBACK || ip == SRS_CONSTS_LOOPBACK6) {
+        return err;
+    }
+
+    // Try to add the API server ip as candidates.
+    candidate_ips.insert(ip);
+
+    return err;
+}
+
+static set<string> discover_candidates(SrsRtcUserConfig* ruc)
+{
+    srs_error_t err = srs_success;
+
+    // Try to discover the eip as candidate, specified by user.
+    set<string> candidate_ips;
+    if (!ruc->eip_.empty()) {
+        candidate_ips.insert(ruc->eip_);
+    }
+
+    // Try to discover from api of request, if api_as_candidates enabled.
+    if ((err = api_server_as_candidates(ruc->api_, candidate_ips)) != srs_success) {
+        srs_warn("ignore discovering ip from api %s, err %s", ruc->api_.c_str(), srs_error_summary(err).c_str());
+        srs_freep(err);
+    }
+
+    // If not * or 0.0.0.0, use the candidate as exposed IP.
     string candidate = _srs_config->get_rtc_server_candidates();
     if (candidate != "*" && candidate != "0.0.0.0") {
-        candidate_ips.push_back(candidate);
+        candidate_ips.insert(candidate);
         return candidate_ips;
     }
 
-    // For * or 0.0.0.0, auto discovery expose ip addresses.
-    std::vector<SrsIPAddress*>& ips = srs_get_local_ips();
+    // Discover from local network interface addresses.
+    vector<SrsIPAddress*>& ips = srs_get_local_ips();
     if (ips.empty()) {
         return candidate_ips;
     }
@@ -196,7 +228,7 @@ static std::vector<std::string> get_candidate_ips()
             continue;
         }
 
-        candidate_ips.push_back(ip->ip);
+        candidate_ips.insert(ip->ip);
         srs_trace("Best matched ip=%s, ifname=%s", ip->ip.c_str(), ip->ifname.c_str());
     }
 
@@ -211,7 +243,7 @@ static std::vector<std::string> get_candidate_ips()
             continue;
         }
 
-        candidate_ips.push_back(ip->ip);
+        candidate_ips.insert(ip->ip);
         srs_trace("No best matched, use first ip=%s, ifname=%s", ip->ip.c_str(), ip->ifname.c_str());
         return candidate_ips;
     }
@@ -219,7 +251,7 @@ static std::vector<std::string> get_candidate_ips()
     // We use the first one.
     if (candidate_ips.empty()) {
         SrsIPAddress* ip = ips[0];
-        candidate_ips.push_back(ip->ip);
+        candidate_ips.insert(ip->ip);
         srs_warn("No best matched, use first ip=%s, ifname=%s", ip->ip.c_str(), ip->ifname.c_str());
         return candidate_ips;
     }
@@ -259,6 +291,7 @@ SrsRtcServer::SrsRtcServer()
 {
     handler = NULL;
     hijacker = NULL;
+    async = new SrsAsyncCallWorker();
 
     _srs_config->subscribe(this);
 }
@@ -274,6 +307,9 @@ SrsRtcServer::~SrsRtcServer()
             srs_freep(listener);
         }
     }
+
+    async->stop();
+    srs_freep(async);
 }
 
 srs_error_t SrsRtcServer::initialize()
@@ -289,61 +325,13 @@ srs_error_t SrsRtcServer::initialize()
         return srs_error_wrap(err, "black hole");
     }
 
-    bool rtp_cache_enabled = _srs_config->get_rtc_server_rtp_cache_enabled();
-    uint64_t rtp_cache_pkt_size = _srs_config->get_rtc_server_rtp_cache_pkt_size();
-    uint64_t rtp_cache_payload_size = _srs_config->get_rtc_server_rtp_cache_payload_size();
-    _srs_rtp_cache->setup(rtp_cache_enabled, rtp_cache_pkt_size);
-    _srs_rtp_raw_cache->setup(rtp_cache_enabled, rtp_cache_payload_size);
-    _srs_rtp_fua_cache->setup(rtp_cache_enabled, rtp_cache_payload_size);
-
-    bool rtp_msg_cache_enabled = _srs_config->get_rtc_server_rtp_msg_cache_enabled();
-    uint64_t rtp_msg_cache_msg_size = _srs_config->get_rtc_server_rtp_msg_cache_msg_size();
-    uint64_t rtp_msg_cache_buffer_size = _srs_config->get_rtc_server_rtp_msg_cache_buffer_size();
-    _srs_rtp_msg_cache_buffers->setup(rtp_msg_cache_enabled, rtp_msg_cache_buffer_size);
-    _srs_rtp_msg_cache_objs->setup(rtp_msg_cache_enabled, rtp_msg_cache_msg_size);
-
-    srs_trace("RTC: Object cache init, rtp-cache=(enabled:%d,pkt:%dm-%dw,payload:%dm-%dw-%dw), msg-cache=(enabled:%d,obj:%dm-%dw,buf:%dm-%dw)",
-        rtp_cache_enabled, (int)(rtp_cache_pkt_size/1024/1024), _srs_rtp_cache->capacity()/10000,
-        (int)(rtp_cache_payload_size/1024/1024), _srs_rtp_raw_cache->capacity()/10000, _srs_rtp_fua_cache->capacity()/10000,
-        rtp_msg_cache_enabled, (int)(rtp_msg_cache_msg_size/1024/1024), _srs_rtp_msg_cache_objs->capacity()/10000,
-        (int)(rtp_msg_cache_buffer_size/1024/1024), _srs_rtp_msg_cache_buffers->capacity()/10000);
+    async->start();
 
     return err;
 }
 
 srs_error_t SrsRtcServer::on_reload_rtc_server()
 {
-    bool changed = false;
-
-    bool rtp_cache_enabled = _srs_config->get_rtc_server_rtp_cache_enabled();
-    uint64_t rtp_cache_pkt_size = _srs_config->get_rtc_server_rtp_cache_pkt_size();
-    uint64_t rtp_cache_payload_size = _srs_config->get_rtc_server_rtp_cache_payload_size();
-    if (_srs_rtp_cache->enabled() != rtp_cache_enabled) {
-        _srs_rtp_cache->setup(rtp_cache_enabled, rtp_cache_pkt_size);
-        _srs_rtp_raw_cache->setup(rtp_cache_enabled, rtp_cache_payload_size);
-        _srs_rtp_fua_cache->setup(rtp_cache_enabled, rtp_cache_payload_size);
-
-        changed = true;
-    }
-
-    bool rtp_msg_cache_enabled = _srs_config->get_rtc_server_rtp_msg_cache_enabled();
-    uint64_t rtp_msg_cache_msg_size = _srs_config->get_rtc_server_rtp_msg_cache_msg_size();
-    uint64_t rtp_msg_cache_buffer_size = _srs_config->get_rtc_server_rtp_msg_cache_buffer_size();
-    if (_srs_rtp_msg_cache_buffers->enabled() != rtp_msg_cache_enabled) {
-        _srs_rtp_msg_cache_buffers->setup(rtp_msg_cache_enabled, rtp_msg_cache_buffer_size);
-        _srs_rtp_msg_cache_objs->setup(rtp_msg_cache_enabled, rtp_msg_cache_msg_size);
-
-        changed = true;
-    }
-
-    if (changed) {
-        srs_trace("RTC: Object cache reload, rtp-cache=(enabled:%d,pkt:%dm-%dw,payload:%dm-%dw-%dw), msg-cache=(enabled:%d,obj:%dm-%dw,buf:%dm-%dw)",
-            rtp_cache_enabled, (int)(rtp_cache_pkt_size/1024/1024), _srs_rtp_cache->capacity()/10000,
-            (int)(rtp_cache_payload_size/1024/1024), _srs_rtp_raw_cache->capacity()/10000, _srs_rtp_fua_cache->capacity()/10000,
-            rtp_msg_cache_enabled, (int)(rtp_msg_cache_msg_size/1024/1024), _srs_rtp_msg_cache_objs->capacity()/10000,
-            (int)(rtp_msg_cache_buffer_size/1024/1024), _srs_rtp_msg_cache_buffers->capacity()/10000);
-    }
-
     return srs_success;
 }
 
@@ -355,6 +343,11 @@ void SrsRtcServer::set_handler(ISrsRtcServerHandler* h)
 void SrsRtcServer::set_hijacker(ISrsRtcServerHijacker* h)
 {
     hijacker = h;
+}
+
+srs_error_t SrsRtcServer::exec_async_work(ISrsAsyncCallTask * t)
+{
+    return async->execute(t);
 }
 
 srs_error_t SrsRtcServer::listen_udp()
@@ -519,7 +512,7 @@ srs_error_t SrsRtcServer::create_session(SrsRtcUserConfig* ruc, SrsSdp& local_sd
 
     SrsRequest* req = ruc->req_;
 
-    SrsRtcStream* source = NULL;
+    SrsRtcSource* source = NULL;
     if ((err = _srs_rtc_sources->fetch_or_create(req, &source)) != srs_success) {
         return srs_error_wrap(err, "create source");
     }
@@ -579,19 +572,17 @@ srs_error_t SrsRtcServer::do_create_session(SrsRtcUserConfig* ruc, SrsSdp& local
     local_sdp.set_fingerprint(_srs_rtc_dtls_certificate->get_fingerprint());
 
     // We allows to mock the eip of server.
-    if (!ruc->eip_.empty()) {
-        string host;
-        int port = _srs_config->get_rtc_server_listen();
-        srs_parse_hostport(ruc->eip_, host, port);
-
-        local_sdp.add_candidate(host, port, "host");
-        srs_trace("RTC: Use candidate mock_eip %s as %s:%d", ruc->eip_.c_str(), host.c_str(), port);
-    } else {
-        std::vector<string> candidate_ips = get_candidate_ips();
-        for (int i = 0; i < (int)candidate_ips.size(); ++i) {
-            local_sdp.add_candidate(candidate_ips[i], _srs_config->get_rtc_server_listen(), "host");
+    if (true) {
+        int listen_port = _srs_config->get_rtc_server_listen();
+        set<string> candidates = discover_candidates(ruc);
+        for (set<string>::iterator it = candidates.begin(); it != candidates.end(); ++it) {
+            string hostname; int port = listen_port;
+            srs_parse_hostport(*it, hostname,port);
+            local_sdp.add_candidate(hostname, port, "host");
         }
-        srs_trace("RTC: Use candidates %s", srs_join_vector_string(candidate_ips, ", ").c_str());
+
+        vector<string> v = vector<string>(candidates.begin(), candidates.end());
+        srs_trace("RTC: Use candidates %s", srs_join_vector_string(v, ", ").c_str());
     }
 
     // Setup the negotiate DTLS by config.
@@ -659,8 +650,7 @@ srs_error_t SrsRtcServer::on_timer(srs_utime_t interval)
         session->switch_to_context();
 
         string username = session->username();
-        srs_trace("RTC: session destroy by timeout, username=%s, summary: %s", username.c_str(),
-            session->stat_->summary().c_str());
+        srs_trace("RTC: session destroy by timeout, username=%s", username.c_str());
 
         // Use manager to free session and notify other objects.
         _srs_rtc_manager->remove(session);
@@ -754,7 +744,7 @@ srs_error_t RtcServerAdapter::initialize()
     return err;
 }
 
-srs_error_t RtcServerAdapter::run()
+srs_error_t RtcServerAdapter::run(SrsWaitGroup* wg)
 {
     srs_error_t err = srs_success;
 

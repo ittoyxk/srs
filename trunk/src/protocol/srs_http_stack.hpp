@@ -1,25 +1,8 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Winlin
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
 
 #ifndef SRS_PROTOCOL_HTTP_HPP
 #define SRS_PROTOCOL_HTTP_HPP
@@ -27,8 +10,6 @@
 #include <srs_core.hpp>
 
 #include <srs_kernel_io.hpp>
-
-#if !defined(SRS_EXPORT_LIBRTMP)
 
 #include <map>
 #include <string>
@@ -304,17 +285,28 @@ private:
     virtual srs_error_t serve_file(ISrsHttpResponseWriter* w, ISrsHttpMessage* r, std::string fullpath);
     virtual srs_error_t serve_flv_file(ISrsHttpResponseWriter* w, ISrsHttpMessage* r, std::string fullpath);
     virtual srs_error_t serve_mp4_file(ISrsHttpResponseWriter* w, ISrsHttpMessage* r, std::string fullpath);
+    virtual srs_error_t serve_m3u8_file(ISrsHttpResponseWriter* w, ISrsHttpMessage* r, std::string fullpath);
 protected:
     // When access flv file with x.flv?start=xxx
-    virtual srs_error_t serve_flv_stream(ISrsHttpResponseWriter* w, ISrsHttpMessage* r, std::string fullpath, int offset);
+    virtual srs_error_t serve_flv_stream(ISrsHttpResponseWriter* w, ISrsHttpMessage* r, std::string fullpath, int64_t offset);
     // When access mp4 file with x.mp4?range=start-end
     // @param start the start offset in bytes.
     // @param end the end offset in bytes. -1 to end of file.
     // @remark response data in [start, end].
-    virtual srs_error_t serve_mp4_stream(ISrsHttpResponseWriter* w, ISrsHttpMessage* r, std::string fullpath, int start, int end);
+    virtual srs_error_t serve_mp4_stream(ISrsHttpResponseWriter* w, ISrsHttpMessage* r, std::string fullpath, int64_t start, int64_t end);
+    // For HLS protocol.
+    // When the request url, like as "http://127.0.0.1:8080/live/livestream.m3u8", 
+    // returns the response like as "http://127.0.0.1:8080/live/livestream.m3u8?hls_ctx=12345678" .
+    // SRS use "hls_ctx" to keep track of subsequent requests that is short-connection.
+    // Remark 1: 
+    //           Fill the parameter "hls_ctx" by yourself in the first request is allowed, SRS will use it.
+    //           And MUST make sure it is unique.
+    // Remark 2:
+    //           If use two same "hls_ctx" in different requests, SRS cannot detect so that they will be treated as one.
+    virtual srs_error_t serve_m3u8_ctx(ISrsHttpResponseWriter* w, ISrsHttpMessage* r, std::string fullpath);
 protected:
     // Copy the fs to response writer in size bytes.
-    virtual srs_error_t copy(ISrsHttpResponseWriter* w, SrsFileReader* fs, ISrsHttpMessage* r, int size);
+    virtual srs_error_t copy(ISrsHttpResponseWriter* w, SrsFileReader* fs, ISrsHttpMessage* r, int64_t size);
 };
 
 // The mux entry for server mux.
@@ -548,9 +540,6 @@ public:
     static srs_error_t query_unescape(std::string s, std::string& value);
     static srs_error_t path_unescape(std::string s, std::string& value);
 };
-
-// For #if !defined(SRS_EXPORT_LIBRTMP)
-#endif
 
 // For #ifndef SRS_PROTOCOL_HTTP_HPP
 #endif

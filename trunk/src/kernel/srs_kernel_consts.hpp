@@ -1,25 +1,8 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Winlin
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
 
 #ifndef SRS_KERNEL_CONSTS_HPP
 #define SRS_KERNEL_CONSTS_HPP
@@ -96,7 +79,6 @@
 #define SRS_CONSTS_RTMP_MAX_FMT3_HEADER_SIZE 5
 
 // For performance issue,
-// the iovs cache, @see https://github.com/ossrs/srs/issues/194
 // iovs cache for multiple messages for each connections.
 // suppose the chunk size is 64k, each message send in a chunk which needs only 2 iovec,
 // so the iovs max should be (SRS_PERF_MW_MSGS * 2)
@@ -104,7 +86,6 @@
 // @remark, SRS will realloc when the iovs not enough.
 #define SRS_CONSTS_IOVS_MAX (SRS_PERF_MW_MSGS * 2)
 // For performance issue,
-// the c0c3 cache, @see https://github.com/ossrs/srs/issues/194
 // c0c3 cache for multiple messages for each connections.
 // each c0 <= 16byes, suppose the chunk size is 64k,
 // each message send in a chunk which needs only a c0 header,
@@ -126,6 +107,7 @@
 ///////////////////////////////////////////////////////////
 #define SRS_CONSTS_NULL_FILE "/dev/null"
 #define SRS_CONSTS_LOCALHOST "127.0.0.1"
+#define SRS_CONSTS_LOCALHOST_NAME "localhost"
 #define SRS_CONSTS_LOOPBACK "0.0.0.0"
 #define SRS_CONSTS_LOOPBACK6 "::"
 
@@ -188,8 +170,6 @@
 #define SRS_CONSTS_LOG_EXEC "EXE"
 // The rtc.
 #define SRS_CONSTS_LOG_RTC "RTC"
-// The gb28181 stream log id.
-#define SRS_CONSTS_LOG_GB28181_CASTER "GBS"
 
 ///////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////

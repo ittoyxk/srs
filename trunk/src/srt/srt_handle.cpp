@@ -1,28 +1,18 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Runner365
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Runner365
+//
+// SPDX-License-Identifier: MIT
+//
 
 #include "srt_handle.hpp"
 #include "time_help.h"
+#include "srt_log.hpp"
+
+#include <srs_kernel_log.hpp>
+#include <srs_kernel_error.hpp>
+#include <srs_app_rtmp_conn.hpp>
+#include <srs_app_config.hpp>
+
 #include <srt/udt.h>
 #include <stdio.h>
 #include <vector>
@@ -31,16 +21,12 @@
 #include <assert.h>
 #include <list>
 
-#include <srs_kernel_log.hpp>
-#include <srs_kernel_error.hpp>
-#include <srs_app_rtmp_conn.hpp>
-#include <srs_app_config.hpp>
-
 static bool MONITOR_STATICS_ENABLE = false;
 static long long MONITOR_TIMEOUT = 5000;
 const unsigned int DEF_DATA_SIZE = 188*7;
 const long long CHECK_ALIVE_INTERVAL = 5*1000;
 const long long CHECK_ALIVE_TIMEOUT = 5*1000;
+static const int SRT_WRTIE_FAIL_MAX = 10;
 
 long long srt_now_ms = 0;
 
@@ -83,7 +69,7 @@ void srt_handle::debug_statics(SRTSOCKET srtsocket, const std::string& streamid)
     output << "LINK         RTT: " << std::setw(9)  << mon.msRTT            << "ms  BANDWIDTH:  " << std::setw(7)  << mon.mbpsBandwidth    << "Mb/s " << std::endl;
     output << "BUFFERLEFT:  SND: " << std::setw(11) << mon.byteAvailSndBuf    << "  RCV:        " << std::setw(11) << mon.byteAvailRcvBuf      << std::endl;
 
-    srs_trace("\r\n%s", output.str().c_str());
+    srt_log_trace("\r\n%s", output.str().c_str());
     return;
 }
 
@@ -96,10 +82,10 @@ void srt_handle::add_new_puller(SRT_CONN_PTR conn_ptr, std::string stream_id) {
         srtsocket_map.insert(std::make_pair(conn_ptr->get_conn(), conn_ptr));
 
         _streamid_map.insert(std::make_pair(stream_id, srtsocket_map));
-        srs_trace("add new puller fd:%d, streamid:%s", conn_ptr->get_conn(), stream_id.c_str());
+        srt_log_trace("add new puller fd:%d, streamid:%s", conn_ptr->get_conn(), stream_id.c_str());
     } else {
         iter->second.insert(std::make_pair(conn_ptr->get_conn(), conn_ptr));
-        srs_trace("add new puller fd:%d, streamid:%s, size:%d", 
+        srt_log_trace("add new puller fd:%d, streamid:%s, size:%d", 
             conn_ptr->get_conn(), stream_id.c_str(), iter->second.size());
     }
 
@@ -107,7 +93,7 @@ void srt_handle::add_new_puller(SRT_CONN_PTR conn_ptr, std::string stream_id) {
 }
 
 void srt_handle::close_pull_conn(SRTSOCKET srtsocket, std::string stream_id) {
-    srs_warn("close_pull_conn read_fd=%d, streamid=%s", srtsocket, stream_id.c_str());
+    srt_log_trace("close_pull_conn read_fd=%d, streamid=%s", srtsocket, stream_id.c_str());
     srt_epoll_remove_usock(_handle_pollid, srtsocket);
 
     auto streamid_iter = _streamid_map.find(stream_id);
@@ -157,36 +143,36 @@ void srt_handle::add_newconn(SRT_CONN_PTR conn_ptr, int events) {
     int opt64_len = sizeof(int64_t);
 
     srt_getsockopt(conn_ptr->get_conn(), 0, SRTO_LATENCY, &val_i, &opt_len);
-    srs_trace("srto SRTO_LATENCY=%d", val_i);
+    srt_log_trace("srto SRTO_LATENCY=%d", val_i);
 
     srt_getsockopt(conn_ptr->get_conn(), 0, SRTO_PEERLATENCY, &val_i, &opt_len);
-    srs_trace("srto SRTO_PEERLATENCY=%d", val_i);
+    srt_log_trace("srto SRTO_PEERLATENCY=%d", val_i);
     srt_getsockopt(conn_ptr->get_conn(), 0, SRTO_RCVLATENCY, &val_i, &opt_len);
-    srs_trace("srto SRTO_RCVLATENCY=%d", val_i);
+    srt_log_trace("srto SRTO_RCVLATENCY=%d", val_i);
 
     srt_getsockopt(conn_ptr->get_conn(), 0, SRTO_SNDBUF, &val_i, &opt_len);
-    srs_trace("srto SRTO_SNDBUF=%d", val_i);
+    srt_log_trace("srto SRTO_SNDBUF=%d", val_i);
     srt_getsockopt(conn_ptr->get_conn(), 0, SRTO_RCVBUF, &val_i, &opt_len);
-    srs_trace("srto SRTO_RCVBUF=%d", val_i);
+    srt_log_trace("srto SRTO_RCVBUF=%d", val_i);
     srt_getsockopt(conn_ptr->get_conn(), 0, SRTO_MAXBW, &val_i64, &opt64_len);
-    srs_trace("srto SRTO_MAXBW=%d", val_i64);
-    srs_trace("srt mix_correct is %s.", _srs_config->get_srt_mix_correct() ? "enable" : "disable");
-    srs_trace("srt h264 sei filter is %s.", _srs_config->get_srt_sei_filter() ? "enable" : "disable");
+    srt_log_trace("srto SRTO_MAXBW=%d", val_i64);
+    srt_log_trace("srt mix_correct is %s.", _srs_config->get_srt_mix_correct() ? "enable" : "disable");
+    srt_log_trace("srt h264 sei filter is %s.", _srs_config->get_srt_sei_filter() ? "enable" : "disable");
 
     if (conn_ptr->get_mode() == PULL_SRT_MODE) {
         add_new_puller(conn_ptr, conn_ptr->get_subpath());
     } else {
         if(add_new_pusher(conn_ptr) == false) {
-            srs_trace("push connection is repeated and rejected, fd:%d, streamid:%s",
+            srt_log_trace("push connection is repeated and rejected, fd:%d, streamid:%s",
                 conn_ptr->get_conn(), conn_ptr->get_streamid().c_str());
             conn_ptr->close();
             return;
         }
     }
-    srs_trace("new conn added fd:%d, event:0x%08x", conn_ptr->get_conn(), events);
+    srt_log_trace("new conn added fd:%d, event:0x%08x", conn_ptr->get_conn(), events);
     int ret = srt_epoll_add_usock(_handle_pollid, conn_ptr->get_conn(), &events);
     if (ret < 0) {
-        srs_error("srt handle run add epoll error:%d", ret);
+        srt_log_error("srt handle run add epoll error:%d", ret);
         return;
     }
 
@@ -200,19 +186,19 @@ void srt_handle::handle_push_data(SRT_SOCKSTATUS status, const std::string& subp
     srt_conn_ptr = get_srt_conn(conn_fd);
 
     if (!srt_conn_ptr) {
-        srs_error("handle_push_data fd:%d fail to find srt connection.", conn_fd);
+        srt_log_error("handle_push_data fd:%d fail to find srt connection.", conn_fd);
         return;
     }
 
     if (status != SRTS_CONNECTED) {
-        srs_error("handle_push_data error status:%d fd:%d", status, conn_fd);
+        srt_log_error("handle_push_data error status:%d fd:%d", status, conn_fd);
         close_push_conn(conn_fd);
         return;
     }
 
     ret = srt_conn_ptr->read(data, DEF_DATA_SIZE);
     if (ret <= 0) {
-        srs_error("handle_push_data srt connect read error:%d, fd:%d", ret, conn_fd);
+        srt_log_error("handle_push_data srt connect read error:%d, fd:%d", ret, conn_fd);
         close_push_conn(conn_fd);
         return;
     }
@@ -220,29 +206,54 @@ void srt_handle::handle_push_data(SRT_SOCKSTATUS status, const std::string& subp
     srt_conn_ptr->update_timestamp(srt_now_ms);
 
     srt2rtmp::get_instance()->insert_data_message(data, ret, subpath);
+    {
+        std::unique_lock<std::mutex> locker(srt2rtmp::_srt_error_mutex);
+        if (srt2rtmp::_srt_error_map.count(subpath) == 1) {
+            int err_code = srt2rtmp::_srt_error_map[subpath];
+            if (err_code != ERROR_SUCCESS) {
+                close_push_conn(conn_fd);
+                srt_log_error("handle_push_data srt to rtmp error:%d, fd:%d", err_code,conn_fd);
+                //todo: reset to next use, maybe update by srt2rtmp::cycle again
+                srt2rtmp::_srt_error_map[subpath] = ERROR_SUCCESS;
+                return;
+            }
+        }
+    }
     
     //send data to subscriber(players)
     //streamid, play map<SRTSOCKET, SRT_CONN_PTR>
     auto streamid_iter = _streamid_map.find(subpath);
     if (streamid_iter == _streamid_map.end()) {//no puler
-        srs_info("receive data size(%d) from pusher(%d) but no puller", ret, conn_fd);
+        srt_log_info("receive data size(%d) from pusher(%d) but no puller", ret, conn_fd);
         return;
     }
-    srs_info("receive data size(%d) from pusher(%d) to pullers, count:%d", 
+    srt_log_info("receive data size(%d) from pusher(%d) to pullers, count:%d", 
         ret, conn_fd, streamid_iter->second.size());
 
+    std::vector<SRTSOCKET> remove_vec;
     for (auto puller_iter = streamid_iter->second.begin();
         puller_iter != streamid_iter->second.end();
         puller_iter++) {
         auto player_conn = puller_iter->second;
         if (!player_conn) {
-            srs_error("handle_push_data get srt connect error from fd:%d", puller_iter->first);
+            srt_log_error("handle_push_data get srt connect error from fd:%d", puller_iter->first);
             continue;
         }
         int write_ret = player_conn->write(data, ret);
-        srs_info("send data size(%d) to puller fd:%d", write_ret, puller_iter->first);
+        srt_log_info("send data size(%d) to puller fd:%d", write_ret, puller_iter->first);
         if (write_ret > 0) {
             puller_iter->second->update_timestamp(srt_now_ms);
+        } else {
+            if (player_conn->get_write_fail_count() > SRT_WRTIE_FAIL_MAX) {
+                remove_vec.push_back(puller_iter->first);
+            }
+        }
+    }
+
+    for (auto item : remove_vec) {
+        streamid_iter->second.erase(item);
+        if (streamid_iter->second.empty()) {
+            _streamid_map.erase(streamid_iter);
         }
     }
 
@@ -278,15 +289,15 @@ void srt_handle::check_alive() {
     {
         SRT_CONN_PTR conn_ptr = *del_iter;
         if (conn_ptr->get_mode() == PUSH_SRT_MODE) {
-            srs_warn("check alive close pull connection fd:%d, streamid:%s",
+            srt_log_warn("check alive close pull connection fd:%d, streamid:%s",
                 conn_ptr->get_conn(), conn_ptr->get_subpath().c_str());
             close_push_conn(conn_ptr->get_conn());
         } else if (conn_ptr->get_mode() == PULL_SRT_MODE) {
-            srs_warn("check alive close pull connection fd:%d, streamid:%s",
+            srt_log_warn("check alive close pull connection fd:%d, streamid:%s",
                 conn_ptr->get_conn(), conn_ptr->get_subpath().c_str());
             close_pull_conn(conn_ptr->get_conn(), conn_ptr->get_subpath());
         } else {
-            srs_error("check_alive get unkown srt mode:%d, fd:%d", 
+            srt_log_error("check_alive get unkown srt mode:%d, fd:%d", 
                 conn_ptr->get_mode(), conn_ptr->get_conn());
             assert(0);
         }
@@ -319,17 +330,17 @@ bool srt_handle::add_new_pusher(SRT_CONN_PTR conn_ptr) {
     }
     _push_conn_map.insert(std::make_pair(conn_ptr->get_subpath(), conn_ptr));
     _conn_map.insert(std::make_pair(conn_ptr->get_conn(), conn_ptr));
-    srs_trace("srt_handle add new pusher streamid:%s, subpath:%s",
+    srt_log_trace("srt_handle add new pusher streamid:%s, subpath:%s",
         conn_ptr->get_streamid().c_str(), conn_ptr->get_subpath().c_str());
     return true;
 }
 
 void srt_handle::handle_pull_data(SRT_SOCKSTATUS status, const std::string& subpath, SRTSOCKET conn_fd) {
-    srs_info("handle_pull_data status:%d, subpath:%s, fd:%d",
+    srt_log_info("handle_pull_data status:%d, subpath:%s, fd:%d",
         status, subpath.c_str(), conn_fd);
     auto conn_ptr = get_srt_conn(conn_fd);
     if (!conn_ptr) {
-        srs_error("handle_pull_data fail to find fd(%d)", conn_fd);
+        srt_log_error("handle_pull_data fail to find fd(%d)", conn_fd);
         assert(0);
         return;
     }
@@ -344,7 +355,7 @@ void srt_handle::handle_srt_socket(SRT_SOCKSTATUS status, SRTSOCKET conn_fd)
 
     if (!conn_ptr) {
         if (status != SRTS_CLOSED) {
-            srs_error("handle_srt_socket find srt connection error, fd:%d, status:%d", 
+            srt_log_error("handle_srt_socket find srt connection error, fd:%d, status:%d", 
                 conn_fd, status);
         }
         return;
@@ -366,13 +377,13 @@ void srt_handle::handle_srt_socket(SRT_SOCKSTATUS status, SRTSOCKET conn_fd)
             }
             case SRTS_BROKEN:
             {
-                srs_warn("srt push disconnected event fd:%d, streamid:%s",
+                srt_log_warn("srt push disconnected event fd:%d, streamid:%s",
                     conn_fd, conn_ptr->get_streamid().c_str());
                 close_push_conn(conn_fd);
                 break;
             }
             default:
-                srs_error("push mode unkown status:%d, fd:%d", status, conn_fd);
+                srt_log_error("push mode unkown status:%d, fd:%d", status, conn_fd);
                 break;
         }
     } else if (mode ==  PULL_SRT_MODE) {
@@ -385,13 +396,13 @@ void srt_handle::handle_srt_socket(SRT_SOCKSTATUS status, SRTSOCKET conn_fd)
         }
         case SRTS_BROKEN:
         {
-            srs_warn("srt pull disconnected fd:%d, streamid:%s",
+            srt_log_warn("srt pull disconnected fd:%d, streamid:%s",
                 conn_fd, conn_ptr->get_streamid().c_str());
             close_pull_conn(conn_fd, subpath);
             break;
         }
         default:
-            srs_error("pull mode unkown status:%d, fd:%d", status, conn_fd);
+            srt_log_error("pull mode unkown status:%d, fd:%d", status, conn_fd);
             break;
         }
     } else {

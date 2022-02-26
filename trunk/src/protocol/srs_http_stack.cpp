@@ -1,29 +1,10 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Winlin
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
 
 #include <srs_http_stack.hpp>
-
-#if !defined(SRS_EXPORT_LIBRTMP)
 
 #include <stdlib.h>
 #include <sstream>
@@ -383,7 +364,7 @@ srs_error_t SrsHttpFileServer::serve_http(ISrsHttpResponseWriter* w, ISrsHttpMes
 
     string upath = r->path();
     string fullpath = srs_http_fs_fullpath(dir, entry->pattern, upath);
-    
+
     // stat current dir, if exists, return error.
     if (!_srs_path_exists(fullpath)) {
         srs_warn("http miss file=%s, pattern=%s, upath=%s",
@@ -399,6 +380,8 @@ srs_error_t SrsHttpFileServer::serve_http(ISrsHttpResponseWriter* w, ISrsHttpMes
         return serve_flv_file(w, r, fullpath);
     } else if (srs_string_ends_with(fullpath, ".mp4")) {
         return serve_mp4_file(w, r, fullpath);
+    } else if (srs_string_ends_with(upath, ".m3u8")) {
+        return serve_m3u8_file(w, r, fullpath);
     }
     
     // serve common static file.
@@ -473,8 +456,8 @@ srs_error_t SrsHttpFileServer::serve_file(ISrsHttpResponseWriter* w, ISrsHttpMes
     
     // write body.
     int64_t left = length;
-    if ((err = copy(w, fs, r, (int)left)) != srs_success) {
-        return srs_error_wrap(err, "copy file=%s size=%d", fullpath.c_str(), (int)left);
+    if ((err = copy(w, fs, r, left)) != srs_success) {
+        return srs_error_wrap(err, "copy file=%s size=%" PRId64, fullpath.c_str(), left);
     }
     
     if ((err = w->final_request()) != srs_success) {
@@ -491,7 +474,7 @@ srs_error_t SrsHttpFileServer::serve_flv_file(ISrsHttpResponseWriter* w, ISrsHtt
         return serve_file(w, r, fullpath);
     }
     
-    int offset = ::atoi(start.c_str());
+    int64_t offset = ::atoll(start.c_str());
     if (offset <= 0) {
         return serve_file(w, r, fullpath);
     }
@@ -524,15 +507,15 @@ srs_error_t SrsHttpFileServer::serve_mp4_file(ISrsHttpResponseWriter* w, ISrsHtt
     }
     
     // parse the start in query string
-    int start = 0;
+    int64_t start = 0;
     if (pos > 0) {
-        start = ::atoi(range.substr(0, pos).c_str());
+        start = ::atoll(range.substr(0, pos).c_str());
     }
     
     // parse end in query string.
-    int end = -1;
+    int64_t end = -1;
     if (pos < range.length() - 1) {
-        end = ::atoi(range.substr(pos + 1).c_str());
+        end = ::atoll(range.substr(pos + 1).c_str());
     }
     
     // invalid param, serve as whole mp4 file.
@@ -543,25 +526,37 @@ srs_error_t SrsHttpFileServer::serve_mp4_file(ISrsHttpResponseWriter* w, ISrsHtt
     return serve_mp4_stream(w, r, fullpath, start, end);
 }
 
-srs_error_t SrsHttpFileServer::serve_flv_stream(ISrsHttpResponseWriter* w, ISrsHttpMessage* r, string fullpath, int offset)
+srs_error_t SrsHttpFileServer::serve_m3u8_file(ISrsHttpResponseWriter * w, ISrsHttpMessage * r, std::string fullpath)
+{
+    return serve_m3u8_ctx(w, r, fullpath);
+}
+
+srs_error_t SrsHttpFileServer::serve_flv_stream(ISrsHttpResponseWriter* w, ISrsHttpMessage* r, string fullpath, int64_t offset)
 {
     // @remark For common http file server, we don't support stream request, please use SrsVodStream instead.
     // TODO: FIXME: Support range in header https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Range_requests
     return serve_file(w, r, fullpath);
 }
 
-srs_error_t SrsHttpFileServer::serve_mp4_stream(ISrsHttpResponseWriter* w, ISrsHttpMessage* r, string fullpath, int start, int end)
+srs_error_t SrsHttpFileServer::serve_mp4_stream(ISrsHttpResponseWriter* w, ISrsHttpMessage* r, string fullpath, int64_t start, int64_t end)
 {
     // @remark For common http file server, we don't support stream request, please use SrsVodStream instead.
     // TODO: FIXME: Support range in header https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Range_requests
     return serve_file(w, r, fullpath);
 }
 
-srs_error_t SrsHttpFileServer::copy(ISrsHttpResponseWriter* w, SrsFileReader* fs, ISrsHttpMessage* r, int size)
+srs_error_t SrsHttpFileServer::serve_m3u8_ctx(ISrsHttpResponseWriter * w, ISrsHttpMessage * r, std::string fullpath)
+{
+    // @remark For common http file server, we don't support stream request, please use SrsVodStream instead.
+    // TODO: FIXME: Support range in header https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Range_requests
+    return serve_file(w, r, fullpath);
+}
+
+srs_error_t SrsHttpFileServer::copy(ISrsHttpResponseWriter* w, SrsFileReader* fs, ISrsHttpMessage* r, int64_t size)
 {
     srs_error_t err = srs_success;
     
-    int left = size;
+    int64_t left = size;
     char* buf = new char[SRS_HTTP_TS_SEND_BUFFER_SIZE];
     SrsAutoFreeA(char, buf);
     
@@ -569,12 +564,12 @@ srs_error_t SrsHttpFileServer::copy(ISrsHttpResponseWriter* w, SrsFileReader* fs
         ssize_t nread = -1;
         int max_read = srs_min(left, SRS_HTTP_TS_SEND_BUFFER_SIZE);
         if ((err = fs->read(buf, max_read, &nread)) != srs_success) {
-            return srs_error_wrap(err, "read limit=%d, left=%d", max_read, left);
+            return srs_error_wrap(err, "read limit=%d, left=%" PRId64, max_read, left);
         }
         
         left -= nread;
         if ((err = w->write(buf, (int)nread)) != srs_success) {
-            return srs_error_wrap(err, "write limit=%d, bytes=%d, left=%d", max_read, (int)nread, left);
+            return srs_error_wrap(err, "write limit=%d, bytes=%d, left=%" PRId64, max_read, (int)nread, left);
         }
     }
     
@@ -1345,9 +1340,6 @@ srs_error_t SrsHttpUri::path_unescape(std::string s, std::string& value)
 {
   return unescapse(s, value, encodePathSegment);
 }
-
-// For #if !defined(SRS_EXPORT_LIBRTMP)
-#endif
 
 // LCOV_EXCL_START
 

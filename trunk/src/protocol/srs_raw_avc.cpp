@@ -1,25 +1,8 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Winlin
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
 
 #include <srs_raw_avc.hpp>
 
@@ -298,7 +281,6 @@ srs_error_t SrsRawAacStream::adts_demux(SrsBuffer* stream, char** pframe, int* p
         // decode the ADTS.
         // @see ISO_IEC_13818-7-AAC-2004.pdf, page 26
         //      6.2 Audio Data Transport Stream, ADTS
-        // @see https://github.com/ossrs/srs/issues/212#issuecomment-64145885
         // byte_alignment()
         
         // adts_fixed_header:
@@ -359,7 +341,7 @@ srs_error_t SrsRawAacStream::adts_demux(SrsBuffer* stream, char** pframe, int* p
         int8_t channel_configuration = (sfiv >> 6) & 0x07;
         /*int8_t original = (sfiv >> 5) & 0x01;*/
         /*int8_t home = (sfiv >> 4) & 0x01;*/
-        //int8_t Emphasis; @remark, Emphasis is removed, @see https://github.com/ossrs/srs/issues/212#issuecomment-64154736
+        //int8_t Emphasis; @remark, Emphasis is removed
         // 4bits left.
         // adts_variable_header(), 1.A.2.2.2 Variable Header of ADTS
         // copyright_identification_bit 1 bslbf

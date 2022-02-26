@@ -1,25 +1,8 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Runner365
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Runner365
+//
+// SPDX-License-Identifier: MIT
+//
 
 #ifndef TS_DEMUX_H
 #define TS_DEMUX_H
@@ -91,7 +74,7 @@ Value    Description
 
 class ts_media_data_callback_I {
 public:
-    virtual void on_data_callback(SRT_DATA_MSG_PTR data_ptr, unsigned int media_type, uint64_t dts, uint64_t pts) = 0;
+    virtual int on_data_callback(SRT_DATA_MSG_PTR data_ptr, unsigned int media_type, uint64_t dts, uint64_t pts) = 0;
 };
 
 typedef std::shared_ptr<ts_media_data_callback_I> TS_DATA_CALLBACK_PTR;
@@ -142,6 +125,7 @@ public:
     unsigned short _DTS_next_AU2;//15bit
     unsigned char _marker_bit2;//1bit
     unsigned short _DTS_next_AU3;//15bit
+    unsigned char _marker_bit3;//1bit
 };
 
 class ts_header {
@@ -243,7 +227,7 @@ private:
     int pes_parse(unsigned char* p, size_t npos, unsigned char** ret_pp, size_t& ret_size,
             uint64_t& dts, uint64_t& pts);
     void insert_into_databuf(unsigned char* data_p, size_t data_size, std::string key_path, unsigned short pid);
-    void on_callback(TS_DATA_CALLBACK_PTR callback, unsigned short pid,
+    int on_callback(TS_DATA_CALLBACK_PTR callback, unsigned short pid,
                 std::string key_path, uint64_t dts, uint64_t pts);
 
 private:

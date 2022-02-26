@@ -6,7 +6,7 @@ OS_KERNRL_RELEASE=$(uname -r|awk -F '-' '{print $1}')
 OS_PREFIX="Platform"
 
 # Build platform cache.
-SRS_PLATFORM="${OS_PREFIX}-${OS_KERNEL_NAME}-${OS_KERNRL_RELEASE}"
+SRS_PLATFORM="${SRS_BUILD_TAG}${OS_PREFIX}-${OS_KERNEL_NAME}-${OS_KERNRL_RELEASE}"
 # Build platform cache with gcc version.
 if [[ $OS_KERNEL_NAME == Darwin ]]; then
   GCC_VERSION="Clang$(gcc --version 2>/dev/null|grep clang|awk '{print $4}')"
@@ -17,7 +17,11 @@ else
   SRS_PLATFORM="${SRS_PLATFORM}-${GCC_VERSION}"
 fi
 # Use isolate cache for different SRS version.
-SRS_PLATFORM="${SRS_PLATFORM}-SRS4"
+SRS_PLATFORM="${SRS_PLATFORM}-SRS4-$(uname -m)"
+
+if [[ $SRS_CROSS_BUILD == YES ]]; then
+  SRS_PLATFORM="${SRS_PLATFORM}-CROSSBUILD-$(echo $SRS_TOOL_CC|awk -F - '{print $1}')"
+fi
 
 echo "SRS_WORKDIR: ${SRS_WORKDIR}, SRS_OBJS_DIR: ${SRS_OBJS_DIR}, SRS_OBJS: ${SRS_OBJS}, SRS_PLATFORM: ${SRS_PLATFORM}"
 

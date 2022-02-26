@@ -1,33 +1,32 @@
 
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Winlin
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
 
 'use strict';
+
+function SrsError(name, message) {
+    this.name = name;
+    this.message = message;
+    this.stack = (new Error()).stack;
+}
+SrsError.prototype = Object.create(Error.prototype);
+SrsError.prototype.constructor = SrsError;
 
 // Depends on adapter-7.4.0.min.js from https://github.com/webrtc/adapter
 // Async-awat-prmise based SRS RTC Publisher.
 function SrsRtcPublisherAsync() {
     var self = {};
+
+    // https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia
+    self.constraints = {
+        audio: true,
+        video: {
+            width: {ideal: 320, max: 576}
+        }
+    };
 
     // @see https://github.com/rtcdn/rtcdn-draft
     // @url The WebRTC url to play with, for example:
@@ -42,8 +41,8 @@ function SrsRtcPublisherAsync() {
     //      webrtc://r.ossrs.net:11985/live/mystream
     // or set the api server to myapi.domain.com:
     //      webrtc://myapi.domain.com/live/livestream
-    // or set the candidate(ip) of answer:
-    //      webrtc://r.ossrs.net/live/livestream?eip=39.107.238.185
+    // or set the candidate(eip) of answer:
+    //      webrtc://r.ossrs.net/live/livestream?candidate=39.107.238.185
     // or force to access https API:
     //      webrtc://r.ossrs.net/live/livestream?schema=https
     // or use plaintext, without SRTP:
@@ -56,12 +55,17 @@ function SrsRtcPublisherAsync() {
         self.pc.addTransceiver("audio", {direction: "sendonly"});
         self.pc.addTransceiver("video", {direction: "sendonly"});
 
-        var stream = await navigator.mediaDevices.getUserMedia(
-            {audio: true, video: {width: {max: 320}}}
-        );
+        if (!navigator.mediaDevices && window.location.protocol === 'http:' && window.location.hostname !== 'localhost') {
+            throw new SrsError('HttpsRequiredError', `Please use HTTPS or localhost to publish, read https://github.com/ossrs/srs/issues/2762#issuecomment-983147576`);
+        }
+        var stream = await navigator.mediaDevices.getUserMedia(self.constraints);
+
         // @see https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/addStream#Migrating_to_addTrack
         stream.getTracks().forEach(function (track) {
             self.pc.addTrack(track);
+
+            // Notify about local track when stream is ok.
+            self.ontrack && self.ontrack({track: track});
         });
 
         var offer = await self.pc.createOffer();
@@ -94,9 +98,6 @@ function SrsRtcPublisherAsync() {
         );
         session.simulator = conf.schema + '//' + conf.urlObject.server + ':' + conf.port + '/rtc/v1/nack/';
 
-        // Notify about local stream when success.
-        self.onaddstream && self.onaddstream({stream: stream});
-
         return session;
     };
 
@@ -107,7 +108,10 @@ function SrsRtcPublisherAsync() {
     };
 
     // The callback when got local stream.
-    self.onaddstream = function (event) {
+    // @see https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/addStream#Migrating_to_addTrack
+    self.ontrack = function (event) {
+        // Add track to stream of SDK.
+        self.stream.addTrack(event.track);
     };
 
     // Internal APIs.
@@ -144,7 +148,7 @@ function SrsRtcPublisherAsync() {
 
             return {
                 apiUrl: apiUrl, streamUrl: streamUrl, schema: schema, urlObject: urlObject, port: port,
-                tid: new Date().getTime().toString(16)
+                tid: Number(parseInt(new Date().getTime()*Math.random()*100)).toString(16).substr(0, 7)
             };
         },
         parse: function (url) {
@@ -189,6 +193,12 @@ function SrsRtcPublisherAsync() {
 
             var port = a.port;
             if (!port) {
+                // Finger out by webrtc url, if contains http or https port, to overwrite default 1985.
+                if (schema === 'webrtc' && url.indexOf(`webrtc://${a.host}:`) === 0) {
+                    port = (url.indexOf(`webrtc://${a.host}:80`) === 0) ? 80 : 443;
+                }
+
+                // Guess by schema.
                 if (schema === 'http') {
                     port = 80;
                 } else if (schema === 'https') {
@@ -253,6 +263,11 @@ function SrsRtcPublisherAsync() {
 
     self.pc = new RTCPeerConnection(null);
 
+    // To keep api consistent between player and publisher.
+    // @see https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/addStream#Migrating_to_addTrack
+    // @see https://webrtc.org/getting-started/media-devices
+    self.stream = new MediaStream();
+
     return self;
 }
 
@@ -266,6 +281,7 @@ function SrsRtcPlayerAsync() {
     //      webrtc://r.ossrs.net/live/livestream
     // or specifies the API port:
     //      webrtc://r.ossrs.net:11985/live/livestream
+    //      webrtc://r.ossrs.net:80/live/livestream
     // or autostart the play:
     //      webrtc://r.ossrs.net/live/livestream?autostart=true
     // or change the app from live to myapp:
@@ -274,8 +290,8 @@ function SrsRtcPlayerAsync() {
     //      webrtc://r.ossrs.net:11985/live/mystream
     // or set the api server to myapi.domain.com:
     //      webrtc://myapi.domain.com/live/livestream
-    // or set the candidate(ip) of answer:
-    //      webrtc://r.ossrs.net/live/livestream?eip=39.107.238.185
+    // or set the candidate(eip) of answer:
+    //      webrtc://r.ossrs.net/live/livestream?candidate=39.107.238.185
     // or force to access https API:
     //      webrtc://r.ossrs.net/live/livestream?schema=https
     // or use plaintext, without SRTP:
@@ -315,6 +331,8 @@ function SrsRtcPlayerAsync() {
         await self.pc.setRemoteDescription(
             new RTCSessionDescription({type: 'answer', sdp: session.sdp})
         );
+        session.simulator = conf.schema + '//' + conf.urlObject.server + ':' + conf.port + '/rtc/v1/nack/';
+
         return session;
     };
 
@@ -324,8 +342,12 @@ function SrsRtcPlayerAsync() {
         self.pc = null;
     };
 
-    // The callback when got remote stream.
-    self.onaddstream = function (event) {};
+    // The callback when got remote track.
+    // Note that the onaddstream is deprecated, @see https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/onaddstream
+    self.ontrack = function (event) {
+        // https://webrtc.org/getting-started/remote-streams
+        self.stream.addTrack(event.track);
+    };
 
     // Internal APIs.
     self.__internal = {
@@ -361,7 +383,7 @@ function SrsRtcPlayerAsync() {
 
             return {
                 apiUrl: apiUrl, streamUrl: streamUrl, schema: schema, urlObject: urlObject, port: port,
-                tid: new Date().getTime().toString(16)
+                tid: Number(parseInt(new Date().getTime()*Math.random()*100)).toString(16).substr(0, 7)
             };
         },
         parse: function (url) {
@@ -406,6 +428,12 @@ function SrsRtcPlayerAsync() {
 
             var port = a.port;
             if (!port) {
+                // Finger out by webrtc url, if contains http or https port, to overwrite default 1985.
+                if (schema === 'webrtc' && url.indexOf(`webrtc://${a.host}:`) === 0) {
+                    port = (url.indexOf(`webrtc://${a.host}:80`) === 0) ? 80 : 443;
+                }
+
+                // Guess by schema.
                 if (schema === 'http') {
                     port = 80;
                 } else if (schema === 'https') {
@@ -469,9 +497,14 @@ function SrsRtcPlayerAsync() {
     };
 
     self.pc = new RTCPeerConnection(null);
-    self.pc.onaddstream = function (event) {
-        if (self.onaddstream) {
-            self.onaddstream(event);
+
+    // Create a stream to add track to the stream, @see https://webrtc.org/getting-started/remote-streams
+    self.stream = new MediaStream();
+
+    // https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/ontrack
+    self.pc.ontrack = function(event) {
+        if (self.ontrack) {
+            self.ontrack(event);
         }
     };
 
@@ -483,7 +516,8 @@ function SrsRtcPlayerAsync() {
 function SrsRtcFormatSenders(senders, kind) {
     var codecs = [];
     senders.forEach(function (sender) {
-        sender.getParameters().codecs.forEach(function(c) {
+        var params = sender.getParameters();
+        params && params.codecs && params.codecs.forEach(function(c) {
             if (kind && sender.track.kind !== kind) {
                 return;
             }

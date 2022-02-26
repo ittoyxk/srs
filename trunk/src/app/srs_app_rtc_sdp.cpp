@@ -1,25 +1,8 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 John
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 John
+//
+// SPDX-License-Identifier: MIT
+//
 
 #include <srs_app_rtc_sdp.hpp>
 
@@ -162,7 +145,7 @@ srs_error_t SrsSessionInfo::encode(std::ostringstream& os)
     return err;
 }
 
-bool SrsSessionInfo::operator=(const SrsSessionInfo& rhs)
+bool SrsSessionInfo::operator==(const SrsSessionInfo& rhs)
 {
     return ice_ufrag_        == rhs.ice_ufrag_ &&
            ice_pwd_          == rhs.ice_pwd_ &&
@@ -170,6 +153,16 @@ bool SrsSessionInfo::operator=(const SrsSessionInfo& rhs)
            fingerprint_algo_ == rhs.fingerprint_algo_ &&
            fingerprint_      == rhs.fingerprint_ &&
            setup_            == rhs.setup_;
+}
+
+SrsSessionInfo &SrsSessionInfo::operator=(SrsSessionInfo other) {
+    std::swap(ice_ufrag_, other.ice_ufrag_);
+    std::swap(ice_pwd_, other.ice_pwd_);
+    std::swap(ice_options_, other.ice_options_);
+    std::swap(fingerprint_algo_, other.fingerprint_algo_);
+    std::swap(fingerprint_, other.fingerprint_);
+    std::swap(setup_, other.setup_);
+    return *this;
 }
 
 SrsSSRCInfo::SrsSSRCInfo()
@@ -763,6 +756,9 @@ srs_error_t SrsSdp::parse(const std::string& sdp_str)
         if (!line.empty() && line[line.size()-1] == '\r') {
             line.erase(line.size()-1, 1);
         }
+
+        // Strip the space of line, for pion WebRTC client.
+        line = srs_string_trim_end(line, " ");
 
         if ((err = parse_line(line)) != srs_success) {
             return srs_error_wrap(err, "parse sdp line failed");

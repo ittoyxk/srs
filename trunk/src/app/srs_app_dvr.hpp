@@ -1,25 +1,8 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Winlin
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
 
 #ifndef SRS_APP_DVR_HPP
 #define SRS_APP_DVR_HPP
@@ -29,7 +12,7 @@
 #include <string>
 #include <sstream>
 
-class SrsSource;
+class SrsLiveSource;
 class SrsOriginHub;
 class SrsRequest;
 class SrsBuffer;
@@ -178,14 +161,13 @@ public:
 protected:
     SrsOriginHub* hub;
     SrsDvrSegmenter* segment;
-    SrsAsyncCallWorker* async;
     bool dvr_enabled;
 public:
     SrsDvrPlan();
     virtual ~SrsDvrPlan();
 public:
     virtual srs_error_t initialize(SrsOriginHub* h, SrsDvrSegmenter* s, SrsRequest* r);
-    virtual srs_error_t on_publish();
+    virtual srs_error_t on_publish(SrsRequest* r);
     virtual void on_unpublish();
     virtual srs_error_t on_meta_data(SrsSharedPtrMessage* shared_metadata);
     virtual srs_error_t on_audio(SrsSharedPtrMessage* shared_audio, SrsFormat* format);
@@ -205,7 +187,7 @@ public:
     SrsDvrSessionPlan();
     virtual ~SrsDvrSessionPlan();
 public:
-    virtual srs_error_t on_publish();
+    virtual srs_error_t on_publish(SrsRequest* r);
     virtual void on_unpublish();
 };
 
@@ -216,12 +198,14 @@ private:
     // in config, in srs_utime_t
     srs_utime_t cduration;
     bool wait_keyframe;
+    // Whether reopening the DVR file.
+    bool reopening_segment_;
 public:
     SrsDvrSegmentPlan();
     virtual ~SrsDvrSegmentPlan();
 public:
     virtual srs_error_t initialize(SrsOriginHub* h, SrsDvrSegmenter* s, SrsRequest* r);
-    virtual srs_error_t on_publish();
+    virtual srs_error_t on_publish(SrsRequest* r);
     virtual void on_unpublish();
     virtual srs_error_t on_audio(SrsSharedPtrMessage* shared_audio, SrsFormat* format);
     virtual srs_error_t on_video(SrsSharedPtrMessage* shared_video, SrsFormat* format);
@@ -255,7 +239,7 @@ public:
     // publish stream event,
     // when encoder start to publish RTMP stream.
     // @param fetch_sequence_header whether fetch sequence from source.
-    virtual srs_error_t on_publish();
+    virtual srs_error_t on_publish(SrsRequest* r);
     // the unpublish event.,
     // when encoder stop(unpublish) to publish RTMP stream.
     virtual void on_unpublish();
@@ -267,9 +251,6 @@ public:
     // mux the video packets to dvr.
     // @param shared_video, directly ptr, copy it if need to save it.
     virtual srs_error_t on_video(SrsSharedPtrMessage* shared_video, SrsFormat* format);
-// Interface ISrsReloadHandler
-public:
-    virtual srs_error_t on_reload_vhost_dvr_apply(std::string vhost);
 };
 
 #endif

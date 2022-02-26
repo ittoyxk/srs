@@ -1,25 +1,8 @@
-/**
- * The MIT License (MIT)
- *
- * Copyright (c) 2013-2021 Winlin
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
 
 #ifndef SRS_CORE_PERFORMANCE_HPP
 #define SRS_CORE_PERFORMANCE_HPP
@@ -71,7 +54,6 @@
  * @remark this largely improve performance, from 3.5k+ to 7.5k+.
  *       the latency+ when cache+.
  * @remark the socket send buffer default to 185KB, it large enough.
- * @see https://github.com/ossrs/srs/issues/194
  * @see SrsConfig::get_mw_sleep_ms()
  * @remark the mw sleep and msgs to send, maybe:
  *       mw_sleep        msgs        iovs
@@ -106,24 +88,20 @@
 
 /**
  * whether set the socket send buffer size.
- * @see https://github.com/ossrs/srs/issues/251
  */
 #define SRS_PERF_MW_SO_SNDBUF
 
 /**
  * whether set the socket recv buffer size.
- * @see https://github.com/ossrs/srs/issues/251
  */
 #undef SRS_PERF_MW_SO_RCVBUF
 /**
  * whether enable the fast vector for qeueue.
- * @see https://github.com/ossrs/srs/issues/251
  */
 #define SRS_PERF_QUEUE_FAST_VECTOR
 /**
  * whether use cond wait to send messages.
  * @remark this improve performance for large connectios.
- * @see https://github.com/ossrs/srs/issues/251
  */
 // TODO: FIXME: Should always enable it.
 #define SRS_PERF_QUEUE_COND_WAIT
